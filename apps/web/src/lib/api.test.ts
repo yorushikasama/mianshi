@@ -3,7 +3,9 @@ import {
   ApiError,
   buildApiUrl,
   buildPracticeAttemptsPath,
+  buildReviewOverviewPath,
   clearAccessToken,
+  fetchReviewOverview,
   fetchPracticeAttempts,
   getAccessToken,
   setAccessToken,
@@ -35,6 +37,12 @@ describe("web API client helpers", () => {
     expect(buildPracticeAttemptsPath("q/java roots")).toBe("/practice/attempts?questionId=q%2Fjava%20roots");
   });
 
+  it("builds review overview paths with bounded query params", () => {
+    expect(buildReviewOverviewPath({ dueLimit: 6, recentLimit: 4 })).toBe(
+      "/review/overview?dueLimit=6&recentLimit=4",
+    );
+  });
+
   it("attaches the current access token to protected requests", async () => {
     setAccessToken("access-token");
     const fetchMock = vi.fn(async () => jsonResponse([]));
@@ -44,6 +52,33 @@ describe("web API client helpers", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/practice/attempts?questionId=q_jvm_gc_roots",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("fetches the protected review overview with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        generatedAt: "2026-06-11T00:00:00.000Z",
+        dueTodayCount: 0,
+        overdueCount: 0,
+        totalAttemptCount: 0,
+        dueItems: [],
+        recentAttempts: [],
+        weakCategories: [],
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchReviewOverview({ dueLimit: 6, recentLimit: 4 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/review/overview?dueLimit=6&recentLimit=4",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",

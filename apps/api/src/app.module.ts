@@ -13,9 +13,12 @@ import { PRACTICE_ATTEMPT_REPOSITORY, PracticeService } from "./practice/practic
 import { PrismaQuestionRepository } from "./questions/prisma-question.repository";
 import { QuestionController } from "./questions/question.controller";
 import { QUESTION_REPOSITORY, QuestionService } from "./questions/question.service";
+import { PrismaReviewRepository } from "./review/prisma-review.repository";
+import { ReviewController } from "./review/review.controller";
+import { REVIEW_REPOSITORY, ReviewService } from "./review/review.service";
 
 @Module({
-  controllers: [HealthController, AuthController, CatalogController, QuestionController, PracticeController],
+  controllers: [HealthController, AuthController, CatalogController, QuestionController, PracticeController, ReviewController],
   providers: [
     CatalogService,
     PrismaService,
@@ -37,6 +40,12 @@ import { QUESTION_REPOSITORY, QuestionService } from "./questions/question.servi
     {
       provide: PRACTICE_ATTEMPT_REPOSITORY,
       useExisting: PrismaPracticeAttemptRepository,
+    },
+    PrismaReviewRepository,
+    ReviewService,
+    {
+      provide: REVIEW_REPOSITORY,
+      useExisting: PrismaReviewRepository,
     },
   ],
 })

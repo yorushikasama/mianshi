@@ -1,14 +1,9 @@
 import {
   BookOpen,
   Brain,
-  CalendarCheck,
   ChevronRight,
   ClipboardCheck,
-  Clock3,
-  FileText,
-  Flame,
   Layers,
-  Network,
   Radar,
   Route,
   ShieldCheck,
@@ -18,43 +13,16 @@ import {
   Zap,
 } from "lucide-react";
 import { getJavaBackendCatalog } from "@mianshi/shared";
+import { DashboardOverview } from "@/components/dashboard-overview";
 import { HeroMotion } from "@/components/hero-motion";
 
 const catalog = getJavaBackendCatalog();
-
-const todayTasks = [
-  {
-    title: "JVM GC Roots 复述",
-    detail: "用 2 分钟说清楚可达性分析",
-    level: "medium",
-    questionId: "q_jvm_gc_roots",
-  },
-  {
-    title: "线程池拒绝策略场景题",
-    detail: "补充线上削峰、降级和拒绝策略取舍",
-    level: "medium",
-    questionId: "q_thread_pool_rejection",
-  },
-  {
-    title: "项目性能优化追问",
-    detail: "按定位、方案、效果数据、权衡取舍组织回答",
-    level: "hard",
-    questionId: "q_project_latency_optimization",
-  },
-];
-
-const stats = [
-  { label: "Java 知识节点", value: catalog.categories.length.toString(), icon: Network },
-  { label: "首批高频题", value: catalog.questions.length.toString(), icon: FileText },
-  { label: "今日待练", value: todayTasks.length.toString(), icon: CalendarCheck },
-  { label: "薄弱追问", value: "5", icon: Flame },
-];
 
 const pipeline = [
   { label: "上传简历/JD", detail: "识别项目、岗位和经验层级", icon: UploadCloud },
   { label: "生成追问链", detail: "围绕 Java 后端高频场景追问", icon: Route },
   { label: "主动练习", detail: "隐藏答案后复述并提交", icon: Brain },
-  { label: "FSRS 复习", detail: "按遗忘风险安排下次复习", icon: Clock3 },
+  { label: "FSRS 复习", detail: "按遗忘风险安排下次复习", icon: Target },
 ];
 
 const customerReasons = [
@@ -129,18 +97,7 @@ export default function HomePage() {
         </aside>
       </section>
 
-      <section className="stats-row" aria-label="学习概览">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <article className="metric" key={stat.label}>
-              <Icon size={19} />
-              <span>{stat.label}</span>
-              <strong>{stat.value}</strong>
-            </article>
-          );
-        })}
-      </section>
+      <DashboardOverview categoryCount={catalog.categories.length} seedQuestionCount={catalog.questions.length} />
 
       <section className="reason-row" aria-label="选择面试雷达的理由">
         {customerReasons.map((item) => {
@@ -175,29 +132,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="content-grid">
-        <div className="section-block" id="plan">
-          <div className="section-title">
-            <Brain size={20} />
-            <h2>今日复习计划</h2>
-          </div>
-          <div className="task-list">
-            {todayTasks.map((task) => (
-              <article className="task-item" key={task.title}>
-                <div>
-                  <span className={`difficulty ${task.level}`}>{task.level}</span>
-                  <h3>{task.title}</h3>
-                  <p>{task.detail}</p>
-                </div>
-                <a className="task-button" href={`/practice/${task.questionId}`} aria-label={`练习 ${task.title}`}>
-                  开始
-                </a>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <div className="section-block" id="catalog">
+      <section className="catalog-section" id="catalog">
+        <div className="section-block">
           <div className="section-title">
             <Layers size={20} />
             <h2>Java 后端知识树</h2>

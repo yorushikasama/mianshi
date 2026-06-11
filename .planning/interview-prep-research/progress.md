@@ -33,3 +33,6 @@
 - Updated seed behavior so Java backend seed questions are shared records (`user_id = null`) while user-created questions remain private to their owner.
 - Protected Practice APIs with Bearer auth and removed the temporary `seed-user` write path. Practice attempts and review states now read/write with the authenticated `user_id`, and tests cover cross-user history isolation.
 - Added Web authentication integration: `/auth` login/register page, in-memory access token handling, httpOnly refresh-cookie session restore, protected API retry on 401, and practice page login gating for personal history/submission.
+- Added `PRODUCT.md` so frontend design work has a stable product register, user definition, brand personality, anti-references, and accessibility baseline.
+- Added a protected review overview slice: `GET /review/overview` aggregates due reviews, overdue reviews, recent attempts, average score, and weak categories from persisted practice/review data with user isolation.
+- Upgraded the Web homepage with a login-aware Dashboard panel. Anonymous users see the demo plan and login callout; authenticated users load personal review overview data through the existing access-token/refresh flow.

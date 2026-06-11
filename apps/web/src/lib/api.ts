@@ -1,4 +1,11 @@
-import type { Answer, PracticeAttemptInput, PracticeAttemptResult, PracticeReviewState, Question } from "@mianshi/shared";
+import type {
+  Answer,
+  PracticeAttemptInput,
+  PracticeAttemptResult,
+  PracticeReviewState,
+  Question,
+  ReviewOverview,
+} from "@mianshi/shared";
 
 const defaultApiBaseUrl = "http://localhost:3001";
 
@@ -117,6 +124,27 @@ export async function fetchPracticeAttempts(questionId?: string) {
 
 export async function fetchPracticeReviewState(questionId: string) {
   return request<PracticeReviewState>(`/practice/review-states/${encodeURIComponent(questionId)}`, {
+    auth: true,
+  });
+}
+
+export function buildReviewOverviewPath(input?: { dueLimit?: number; recentLimit?: number }) {
+  const searchParams = new URLSearchParams();
+
+  if (input?.dueLimit) {
+    searchParams.set("dueLimit", String(input.dueLimit));
+  }
+
+  if (input?.recentLimit) {
+    searchParams.set("recentLimit", String(input.recentLimit));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/review/overview?${query}` : "/review/overview";
+}
+
+export async function fetchReviewOverview(input?: { dueLimit?: number; recentLimit?: number }) {
+  return request<ReviewOverview>(buildReviewOverviewPath(input), {
     auth: true,
   });
 }
