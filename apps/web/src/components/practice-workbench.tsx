@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { Answer, PracticeAttemptResult, PracticeReviewState, Question } from "@mianshi/shared";
-import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Gauge, RotateCcw, Send } from "lucide-react";
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Gauge, LogIn, RotateCcw, Send } from "lucide-react";
+import { useAuth } from "./auth-provider";
 import {
   ApiError,
   fetchPracticeAttempts,
@@ -17,6 +18,7 @@ interface PracticeWorkbenchProps {
 }
 
 export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
+  const { status, user } = useAuth();
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [attempts, setAttempts] = useState<PracticeAttemptResult[]>([]);
@@ -35,12 +37,14 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
       setError(null);
 
       try {
-        const [loadedQuestion, loadedAnswer, loadedAttempts, loadedReviewState] = await Promise.all([
+        const [loadedQuestion, loadedAnswer] = await Promise.all([
           fetchJavaBackendQuestion(questionId),
           fetchJavaBackendAnswer(questionId),
-          fetchPracticeAttempts(questionId),
-          fetchPracticeReviewState(questionId),
         ]);
+        const [loadedAttempts, loadedReviewState] =
+          status === "authenticated"
+            ? await Promise.all([fetchPracticeAttempts(questionId), fetchPracticeReviewState(questionId)])
+            : [[], null];
 
         if (active) {
           setQuestion(loadedQuestion);
@@ -59,14 +63,17 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
       }
     }
 
-    void loadQuestion();
+    if (status !== "loading") {
+      void loadQuestion();
+    }
 
     return () => {
       active = false;
     };
-  }, [questionId]);
+  }, [questionId, status]);
 
-  const canSubmit = submittedAnswer.trim().length >= 4 && !submitting;
+  const isAuthenticated = status === "authenticated" && Boolean(user);
+  const canSubmit = isAuthenticated && submittedAnswer.trim().length >= 4 && !submitting;
   const coverageText = useMemo(() => {
     if (!result || !answer) {
       return "提交后生成";
@@ -77,6 +84,11 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (!isAuthenticated) {
+      setError("请先登录，再提交练习回答。");
+      return;
+    }
 
     if (!canSubmit) {
       return;
@@ -155,6 +167,17 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
         </div>
       ) : null}
 
+      {!isAuthenticated ? (
+        <div className="practice-auth-callout" role="status">
+          <LogIn size={20} />
+          <div>
+            <strong>登录后记录练习结果</strong>
+            <span>题目可以先看，提交评分、历史记录和复习状态需要账号隔离。</span>
+          </div>
+          <a href="/auth">登录 / 注册</a>
+        </div>
+      ) : null}
+
       <section className="practice-layout">
         <form className="question-panel" onSubmit={handleSubmit}>
           <div className="practice-meta">
@@ -177,7 +200,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
           <div className="practice-actions">
             <button type="submit" disabled={!canSubmit}>
               <Send size={17} />
-              {submitting ? "评分中..." : "提交评分"}
+              {!isAuthenticated ? "登录后提交" : submitting ? "评分中..." : "提交评分"}
             </button>
             <button
               type="button"

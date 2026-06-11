@@ -888,6 +888,169 @@ a:focus-visible {
   font-weight: 900;
 }
 
+.auth-page {
+  min-height: 100vh;
+  padding: 28px clamp(18px, 4vw, 56px);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(49, 128, 143, 0.18), transparent 34%),
+    linear-gradient(135deg, #101820 0%, #17212a 50%, #1b2424 100%);
+  color: #f4fbff;
+}
+
+.auth-shell {
+  width: min(1080px, 100%);
+  margin: 54px auto 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.72fr);
+  gap: clamp(26px, 5vw, 72px);
+  align-items: center;
+}
+
+.auth-copy {
+  display: grid;
+  gap: 18px;
+}
+
+.auth-copy h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(40px, 6vw, 88px);
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.auth-copy p:not(.eyebrow) {
+  max-width: 660px;
+  margin: 0;
+  color: rgba(234, 245, 249, 0.78);
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(181, 223, 225, 0.18);
+  border-radius: 8px;
+  background: rgba(10, 18, 23, 0.78);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.26);
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.auth-tabs button,
+.auth-submit,
+.auth-secondary,
+.practice-auth-callout a {
+  min-height: 44px;
+  border: 1px solid rgba(181, 223, 225, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4fbff;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.auth-tabs button,
+.auth-submit,
+.auth-secondary,
+.practice-auth-callout a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.auth-tabs button.active,
+.auth-submit {
+  background: #a7f0d7;
+  color: #10211d;
+  border-color: rgba(167, 240, 215, 0.82);
+}
+
+.auth-form label {
+  display: grid;
+  gap: 8px;
+  color: rgba(234, 245, 249, 0.74);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.auth-form input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(181, 223, 225, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4fbff;
+  padding: 0 13px;
+  font: inherit;
+}
+
+.auth-form input:focus {
+  outline: 2px solid rgba(167, 240, 215, 0.5);
+  outline-offset: 2px;
+}
+
+.auth-success,
+.auth-error {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  padding: 12px 13px;
+  font-size: 14px;
+}
+
+.auth-success {
+  background: rgba(167, 240, 215, 0.12);
+  color: #dffdf2;
+}
+
+.auth-error {
+  background: rgba(255, 111, 97, 0.14);
+  color: #ffd8d2;
+}
+
+.auth-secondary {
+  text-decoration: none;
+}
+
+.practice-auth-callout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid rgba(33, 72, 83, 0.16);
+  border-radius: 8px;
+  background: rgba(167, 240, 215, 0.16);
+}
+
+.practice-auth-callout div {
+  display: grid;
+  gap: 3px;
+}
+
+.practice-auth-callout span {
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.practice-auth-callout a {
+  min-width: 116px;
+  padding: 0 14px;
+  background: var(--ink);
+  color: var(--paper-strong);
+  text-decoration: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -918,13 +1081,18 @@ a:focus-visible {
 
 @media (max-width: 860px) {
   .hero-grid,
-  .content-grid {
+  .content-grid,
+  .auth-shell {
     grid-template-columns: 1fr;
   }
 
   .stats-row,
   .reason-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .auth-shell {
+    margin-top: 34px;
   }
 }
 
@@ -999,9 +1167,23 @@ a:focus-visible {
 
   .practice-strip-action,
   .task-button,
-  .practice-actions button {
+  .practice-actions button,
+  .practice-auth-callout a {
     width: 100%;
     justify-content: center;
+  }
+
+  .auth-page {
+    padding: 18px 10px;
+  }
+
+  .auth-copy h1 {
+    font-size: clamp(36px, 12vw, 56px);
+  }
+
+  .auth-tabs,
+  .practice-auth-callout {
+    grid-template-columns: 1fr;
   }
 
   .practice-page {

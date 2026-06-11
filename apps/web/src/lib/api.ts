@@ -12,6 +12,32 @@ export class ApiError extends Error {
   }
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: string;
+}
+
+export interface AuthSession {
+  user: AuthUser;
+  accessToken: string;
+}
+
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+export function getAccessToken() {
+  return accessToken;
+}
+
+export function clearAccessToken() {
+  accessToken = null;
+}
+
 export function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? defaultApiBaseUrl;
 }
@@ -31,10 +57,47 @@ export async function fetchJavaBackendAnswer(questionId: string) {
   return request<Answer>(`/catalog/java-backend/questions/${encodeURIComponent(questionId)}/answer`);
 }
 
+export async function register(input: { email: string; password: string; displayName?: string }) {
+  const session = await request<AuthSession>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
+    credentials: "include",
+  });
+  setAccessToken(session.accessToken);
+  return session;
+}
+
+export async function login(input: { email: string; password: string }) {
+  const session = await request<AuthSession>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(input),
+    credentials: "include",
+  });
+  setAccessToken(session.accessToken);
+  return session;
+}
+
+export async function refreshSession() {
+  const session = await request<AuthSession>("/auth/refresh", {
+    method: "POST",
+    credentials: "include",
+    auth: false,
+  });
+  setAccessToken(session.accessToken);
+  return session;
+}
+
+export async function fetchCurrentUser() {
+  return request<{ user: AuthUser }>("/auth/me", {
+    auth: true,
+  });
+}
+
 export async function submitPracticeAttempt(input: PracticeAttemptInput) {
   return request<PracticeAttemptResult>("/practice/attempts", {
     method: "POST",
     body: JSON.stringify(input),
+    auth: true,
   });
 }
 
@@ -47,27 +110,66 @@ export function buildPracticeAttemptsPath(questionId?: string) {
 }
 
 export async function fetchPracticeAttempts(questionId?: string) {
-  return request<PracticeAttemptResult[]>(buildPracticeAttemptsPath(questionId));
+  return request<PracticeAttemptResult[]>(buildPracticeAttemptsPath(questionId), {
+    auth: true,
+  });
 }
 
 export async function fetchPracticeReviewState(questionId: string) {
-  return request<PracticeReviewState>(`/practice/review-states/${encodeURIComponent(questionId)}`);
+  return request<PracticeReviewState>(`/practice/review-states/${encodeURIComponent(questionId)}`, {
+    auth: true,
+  });
 }
 
-async function request<T>(path: string, init?: RequestInit) {
+interface ApiRequestInit extends RequestInit {
+  auth?: boolean;
+  retryOnUnauthorized?: boolean;
+}
+
+async function request<T>(path: string, init?: ApiRequestInit): Promise<T> {
+  const { auth = false, retryOnUnauthorized = true, ...requestInit } = init ?? {};
+  const token = auth ? (accessToken ?? (await tryRefreshAccessToken())) : null;
   const response = await fetch(buildApiUrl(path), {
-    ...init,
+    ...requestInit,
     headers: {
       "Content-Type": "application/json",
-      ...init?.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...requestInit.headers,
     },
   });
+
+  if (response.status === 401 && auth && retryOnUnauthorized) {
+    const refreshedToken = await tryRefreshAccessToken();
+
+    if (refreshedToken) {
+      return request<T>(path, {
+        ...init,
+        retryOnUnauthorized: false,
+      });
+    }
+  }
 
   if (!response.ok) {
     throw new ApiError(await readErrorMessage(response), response.status);
   }
 
   return (await response.json()) as T;
+}
+
+async function tryRefreshAccessToken() {
+  try {
+    const session = await request<AuthSession>("/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+      auth: false,
+      retryOnUnauthorized: false,
+    });
+    setAccessToken(session.accessToken);
+    return session.accessToken;
+  } catch {
+    clearAccessToken();
+    return null;
+  }
 }
 
 async function readErrorMessage(response: Response) {

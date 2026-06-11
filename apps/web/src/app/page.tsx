@@ -77,6 +77,7 @@ export default function HomePage() {
           <a href="#plan">复习计划</a>
           <a href="#pipeline">AI 流程</a>
           <a href="#catalog">Java 知识树</a>
+          <a href="/auth">登录</a>
           <a href="/practice/q_project_latency_optimization">开始练习</a>
         </nav>
       </header>

@@ -32,3 +32,4 @@
 - Added protected generic Questions API foundations: paginated listing, per-user visibility, manual question creation, owner-only update/delete, Prisma repository mapping across domain/category/tag, and service/controller tests.
 - Updated seed behavior so Java backend seed questions are shared records (`user_id = null`) while user-created questions remain private to their owner.
 - Protected Practice APIs with Bearer auth and removed the temporary `seed-user` write path. Practice attempts and review states now read/write with the authenticated `user_id`, and tests cover cross-user history isolation.
+- Added Web authentication integration: `/auth` login/register page, in-memory access token handling, httpOnly refresh-cookie session restore, protected API retry on 401, and practice page login gating for personal history/submission.
