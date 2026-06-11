@@ -31,3 +31,4 @@
 - Added Auth service/controller foundations: normalized email registration, scrypt password hashing, login, HMAC access tokens, refresh tokens in httpOnly cookies, and `/auth/me`.
 - Added protected generic Questions API foundations: paginated listing, per-user visibility, manual question creation, owner-only update/delete, Prisma repository mapping across domain/category/tag, and service/controller tests.
 - Updated seed behavior so Java backend seed questions are shared records (`user_id = null`) while user-created questions remain private to their owner.
+- Protected Practice APIs with Bearer auth and removed the temporary `seed-user` write path. Practice attempts and review states now read/write with the authenticated `user_id`, and tests cover cross-user history isolation.

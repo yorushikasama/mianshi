@@ -3,17 +3,15 @@ import type { PracticeAttemptResult } from "@mianshi/shared";
 import { PrismaService } from "../database/prisma.service";
 import type { PracticeAttemptRepository } from "./practice.service";
 
-const anonymousUserId = "seed-user";
-
 @Injectable()
 export class PrismaPracticeAttemptRepository implements PracticeAttemptRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async saveAttempt(attempt: PracticeAttemptResult) {
+  async saveAttempt(userId: string, attempt: PracticeAttemptResult) {
     await this.prisma.practiceAttempt.create({
       data: {
         id: attempt.id,
-        userId: anonymousUserId,
+        userId,
         questionId: attempt.questionId,
         userAnswer: attempt.submittedAnswer,
         aiScore: attempt.score,
@@ -30,12 +28,12 @@ export class PrismaPracticeAttemptRepository implements PracticeAttemptRepositor
     await this.prisma.reviewState.upsert({
       where: {
         userId_questionId: {
-          userId: anonymousUserId,
+          userId,
           questionId: attempt.questionId,
         },
       },
       create: {
-        userId: anonymousUserId,
+        userId,
         questionId: attempt.questionId,
         dueAt: new Date(attempt.nextReviewAt),
         lastReviewedAt: new Date(attempt.createdAt),
@@ -53,10 +51,10 @@ export class PrismaPracticeAttemptRepository implements PracticeAttemptRepositor
     return attempt;
   }
 
-  async listAttempts(questionId?: string) {
+  async listAttempts(userId: string, questionId?: string) {
     const attempts = await this.prisma.practiceAttempt.findMany({
       where: {
-        userId: anonymousUserId,
+        userId,
         questionId,
       },
       orderBy: {

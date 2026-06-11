@@ -10,8 +10,8 @@ export interface SubmitPracticeAttemptInput extends PracticeAttemptInput {
 export const PRACTICE_ATTEMPT_REPOSITORY = Symbol("PRACTICE_ATTEMPT_REPOSITORY");
 
 export interface PracticeAttemptRepository {
-  saveAttempt(attempt: PracticeAttemptResult): Promise<PracticeAttemptResult>;
-  listAttempts(questionId?: string): Promise<PracticeAttemptResult[]>;
+  saveAttempt(userId: string, attempt: PracticeAttemptResult): Promise<PracticeAttemptResult>;
+  listAttempts(userId: string, questionId?: string): Promise<PracticeAttemptResult[]>;
 }
 
 @Injectable()
@@ -22,7 +22,7 @@ export class PracticeService {
     private readonly practiceAttemptRepository: PracticeAttemptRepository,
   ) {}
 
-  async submitAttempt(input: SubmitPracticeAttemptInput) {
+  async submitAttempt(userId: string, input: SubmitPracticeAttemptInput) {
     const parsedInput = PracticeAttemptInputSchema.parse(input);
     const question = this.catalogService.getJavaBackendQuestion(parsedInput.questionId);
     const answer = this.catalogService.getJavaBackendAnswerForQuestion(parsedInput.questionId);
@@ -43,20 +43,20 @@ export class PracticeService {
       now: input.now,
     });
 
-    return this.practiceAttemptRepository.saveAttempt(attempt);
+    return this.practiceAttemptRepository.saveAttempt(userId, attempt);
   }
 
-  async listAttempts(questionId?: string) {
-    return this.practiceAttemptRepository.listAttempts(questionId);
+  async listAttempts(userId: string, questionId?: string) {
+    return this.practiceAttemptRepository.listAttempts(userId, questionId);
   }
 
-  async getReviewState(questionId: string) {
+  async getReviewState(userId: string, questionId: string) {
     const question = this.catalogService.getJavaBackendQuestion(questionId);
 
     if (!question) {
       throw new Error("Question not found");
     }
 
-    return buildPracticeReviewState(questionId, await this.practiceAttemptRepository.listAttempts(questionId));
+    return buildPracticeReviewState(questionId, await this.practiceAttemptRepository.listAttempts(userId, questionId));
   }
 }
