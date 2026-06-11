@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum QuestionType {
+  concept
+  scenario
+  project_deep_dive
+  system_design
+  coding
+  behavioral
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+enum SourceType {
+  seed
+  manual
+  ai_generated
+  resume
+  job_description
+  project_note
+}
+
+enum AnswerType {
+  standard
+  short
+  interview_style
+  deep
+}
+
+enum AnswerStatus {
+  draft
+  reviewed
+  approved
+}
+
+enum AiJobType {
+  generate_questions
+  generate_answer
+  score_attempt
+  generate_followup
+  embed_document
+  embed_question
+  rag_generate_questions
+}
+
+enum AiJobStatus {
+  pending
+  running
+  succeeded
+  failed
+  canceled
+}
+
+enum DocumentType {
+  resume
+  job_description
+  project_note
+  learning_note
+}
+
+model User {
+  id               String            @id @default(cuid())
+  email            String            @unique
+  passwordHash     String
+  displayName      String?
+  role             String            @default("user")
+  questions        Question[]
+  practiceAttempts PracticeAttempt[]
+  reviewStates     ReviewState[]
+  sourceDocuments  SourceDocument[]
+  aiJobs           AiJob[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model Domain {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  description String
+  categories  Category[]
+  questions   Question[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  slug        String
+  domainId    String
+  domain      Domain     @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  order       Int
+  questions   Question[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([domainId, slug])
+  @@index([domainId, order])
+}
+
+model Tag {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  color     String?
+  questions QuestionTag[]
+  createdAt DateTime      @default(now())
+}
+
+model Question {
+  id               String            @id @default(cuid())
+  userId           String?
+  user             User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domainId         String
+  domain           Domain            @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  categoryId       String
+  category         Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title            String
+  content          String
+  type             QuestionType
+  difficulty       Difficulty
+  sourceType       SourceType
+  aiGenerated      Boolean           @default(false)
+  promptVersionId  String?
+  promptVersion    PromptVersion?    @relation(fields: [promptVersionId], references: [id])
+  model            String?
+  tags             QuestionTag[]
+  answers          Answer[]
+  practiceAttempts PracticeAttempt[]
+  reviewStates     ReviewState[]
+  embedding        QuestionEmbedding?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([domainId, categoryId])
+  @@index([type, difficulty])
+}
+
+model QuestionTag {
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tagId      String
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+}
+
+model QuestionEmbedding {
+  id         String                @id @default(cuid())
+  questionId String                @unique
+  question   Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  embedding  Json?
+  createdAt  DateTime              @default(now())
+}
+
+model Answer {
+  id              String         @id @default(cuid())
+  questionId      String
+  question        Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerType      AnswerType
+  status          AnswerStatus   @default(draft)
+  content         String
+  keyPoints       Json
+  model           String?
+  promptVersionId String?
+  promptVersion   PromptVersion? @relation(fields: [promptVersionId], references: [id])
+  tokenUsage      Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([questionId, answerType])
+}
+
+model PracticeAttempt {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId        String
+  question          Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userAnswer        String
+  aiScore           Int
+  rating            String
+  aiFeedback        String
+  matchedPoints     Json
+  missingPoints     Json
+  followupQuestions Json
+  nextReviewAt      DateTime
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([questionId])
+}
+
+model ReviewState {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId     String
+  question       Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  stability      Float?
+  difficulty     Float?
+  dueAt          DateTime
+  lastReviewedAt DateTime?
+  reviewCount    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([userId, dueAt])
+}
+
+model SourceDocument {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType DocumentType
+  title        String
+  content      String
+  fileUrl      String?
+  chunks       DocumentChunk[]
+  createdAt    DateTime        @default(now())
+
+  @@index([userId, documentType])
+}
+
+model DocumentChunk {
+  id         String                @id @default(cuid())
+  documentId String
+  document   SourceDocument        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  chunkIndex Int
+  content    String
+  metadata   Json
+  embedding  Json?
+  createdAt  DateTime              @default(now())
+
+  @@unique([documentId, chunkIndex])
+}
+
+model AiJob {
+  id         String      @id @default(cuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       AiJobType
+  status     AiJobStatus @default(pending)
+  progress   Int         @default(0)
+  input      Json
+  output     Json?
+  error      String?
+  retryCount Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([userId, status])
+  @@index([type, status])
+}
+
+model PromptVersion {
+  id           String     @id @default(cuid())
+  name         String
+  version      String
+  template     String
+  outputSchema Json
+  questions    Question[]
+  answers      Answer[]
+  createdAt    DateTime   @default(now())
+
+  @@unique([name, version])
+}

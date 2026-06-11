@@ -1,0 +1,18 @@
+{
+  "name": "面试雷达",
+  "short_name": "面试雷达",
+  "description": "面向 Java 后端候选人的 AI 面试复习 PWA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101820",
+  "theme_color": "#101820",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

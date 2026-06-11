@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Router"
+  short_description: "Routes tasks to the right installed skills"
+  default_prompt: "Use $routing-skills to choose which installed skills apply to this request and in what order."

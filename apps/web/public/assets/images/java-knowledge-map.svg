@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" role="img" aria-labelledby="title desc">
+  <title id="title">Java 后端知识图谱</title>
+  <desc id="desc">围绕 Java 后端面试主题的节点关系图。</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="46%" r="70%">
+      <stop offset="0%" stop-color="#FDF9EF"/>
+      <stop offset="100%" stop-color="#E8DDCA"/>
+    </radialGradient>
+    <linearGradient id="line" x1="0" x2="1">
+      <stop offset="0%" stop-color="#087F6A"/>
+      <stop offset="100%" stop-color="#D97757"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#17201B" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <rect width="960" height="640" rx="44" fill="url(#bg)"/>
+  <g opacity="0.35">
+    <path d="M120 500 C 260 360, 390 520, 520 330 S 760 210, 850 120" fill="none" stroke="#A89C87" stroke-width="2" stroke-dasharray="7 12"/>
+    <path d="M130 170 C 250 240, 320 120, 460 205 S 705 405, 840 300" fill="none" stroke="#A89C87" stroke-width="2" stroke-dasharray="7 12"/>
+  </g>
+  <g stroke="url(#line)" stroke-width="5" stroke-linecap="round" opacity="0.78">
+    <path d="M480 320 L250 180"/>
+    <path d="M480 320 L735 168"/>
+    <path d="M480 320 L260 470"/>
+    <path d="M480 320 L745 468"/>
+    <path d="M480 320 L480 120"/>
+    <path d="M480 320 L480 535"/>
+  </g>
+  <g filter="url(#soft)">
+    <circle cx="480" cy="320" r="92" fill="#17201B"/>
+    <circle cx="480" cy="320" r="70" fill="none" stroke="#EAC35D" stroke-width="3"/>
+    <text x="480" y="309" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="800" fill="#FDF9EF">Java</text>
+    <text x="480" y="347" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#FDF9EF">面试雷达</text>
+  </g>
+  <g font-family="Arial, sans-serif" font-weight="800" text-anchor="middle">
+    <g>
+      <circle cx="250" cy="180" r="64" fill="#087F6A"/>
+      <text x="250" y="172" font-size="22" fill="#FFFFFF">JVM</text>
+      <text x="250" y="202" font-size="16" fill="#D8FFF6">GC / 调优</text>
+    </g>
+    <g>
+      <circle cx="735" cy="168" r="66" fill="#D97757"/>
+      <text x="735" y="160" font-size="22" fill="#FFFFFF">Spring</text>
+      <text x="735" y="190" font-size="16" fill="#FFE2D8">事务 / AOP</text>
+    </g>
+    <g>
+      <circle cx="260" cy="470" r="66" fill="#BD8B2C"/>
+      <text x="260" y="462" font-size="22" fill="#FFFFFF">MySQL</text>
+      <text x="260" y="492" font-size="16" fill="#FFF0C2">索引 / 锁</text>
+    </g>
+    <g>
+      <circle cx="745" cy="468" r="66" fill="#36463F"/>
+      <text x="745" y="460" font-size="22" fill="#FFFFFF">Redis</text>
+      <text x="745" y="490" font-size="16" fill="#CBF7E8">缓存 / 分布式锁</text>
+    </g>
+    <g>
+      <circle cx="480" cy="120" r="58" fill="#28483F"/>
+      <text x="480" y="114" font-size="21" fill="#FFFFFF">并发</text>
+      <text x="480" y="142" font-size="15" fill="#D8FFF6">AQS / 线程池</text>
+    </g>
+    <g>
+      <circle cx="480" cy="535" r="60" fill="#7B4536"/>
+      <text x="480" y="528" font-size="21" fill="#FFFFFF">项目</text>
+      <text x="480" y="557" font-size="15" fill="#FFE2D8">追问 / 复盘</text>
+    </g>
+  </g>
+</svg>
