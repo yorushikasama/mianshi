@@ -1,4 +1,8 @@
 import { Module } from "@nestjs/common";
+import { AuthController } from "./auth/auth.controller";
+import { AUTH_USER_REPOSITORY, AuthService } from "./auth/auth.service";
+import { BearerAuthGuard } from "./auth/bearer-auth.guard";
+import { PrismaAuthUserRepository } from "./auth/prisma-auth-user.repository";
 import { CatalogController } from "./catalog/catalog.controller";
 import { CatalogService } from "./catalog/catalog.service";
 import { PrismaService } from "./database/prisma.service";
@@ -6,12 +10,28 @@ import { HealthController } from "./health/health.controller";
 import { PracticeController } from "./practice/practice.controller";
 import { PrismaPracticeAttemptRepository } from "./practice/prisma-practice-attempt.repository";
 import { PRACTICE_ATTEMPT_REPOSITORY, PracticeService } from "./practice/practice.service";
+import { PrismaQuestionRepository } from "./questions/prisma-question.repository";
+import { QuestionController } from "./questions/question.controller";
+import { QUESTION_REPOSITORY, QuestionService } from "./questions/question.service";
 
 @Module({
-  controllers: [HealthController, CatalogController, PracticeController],
+  controllers: [HealthController, AuthController, CatalogController, QuestionController, PracticeController],
   providers: [
     CatalogService,
     PrismaService,
+    PrismaAuthUserRepository,
+    AuthService,
+    BearerAuthGuard,
+    {
+      provide: AUTH_USER_REPOSITORY,
+      useExisting: PrismaAuthUserRepository,
+    },
+    PrismaQuestionRepository,
+    QuestionService,
+    {
+      provide: QUESTION_REPOSITORY,
+      useExisting: PrismaQuestionRepository,
+    },
     PrismaPracticeAttemptRepository,
     PracticeService,
     {

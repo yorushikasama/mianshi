@@ -74,6 +74,7 @@ async function main() {
     await prisma.question.upsert({
       where: { id: question.id },
       update: {
+        userId: null,
         domainId: domain.id,
         categoryId,
         title: question.title,
@@ -85,7 +86,7 @@ async function main() {
       },
       create: {
         id: question.id,
-        userId: user.id,
+        userId: null,
         domainId: domain.id,
         categoryId,
         title: question.title,

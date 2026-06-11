@@ -28,3 +28,6 @@
 - Persisted practice attempts and review state through the Prisma repository. Current anonymous practice user is `seed-user` until Auth is implemented.
 - Documented the local pgvector gap: embedding fields are temporarily JSON in this environment and should be migrated to vector after pgvector is installed.
 - Prepared the project for GitHub management by tightening `.gitignore` for build outputs, logs, screenshots, and local secrets.
+- Added Auth service/controller foundations: normalized email registration, scrypt password hashing, login, HMAC access tokens, refresh tokens in httpOnly cookies, and `/auth/me`.
+- Added protected generic Questions API foundations: paginated listing, per-user visibility, manual question creation, owner-only update/delete, Prisma repository mapping across domain/category/tag, and service/controller tests.
+- Updated seed behavior so Java backend seed questions are shared records (`user_id = null`) while user-created questions remain private to their owner.
