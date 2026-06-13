@@ -249,21 +249,32 @@ model DocumentChunk {
 }
 
 model AiJob {
-  id         String      @id @default(cuid())
-  userId     String
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type       AiJobType
-  status     AiJobStatus @default(pending)
-  progress   Int         @default(0)
-  input      Json
-  output     Json?
-  error      String?
-  retryCount Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            AiJobType
+  status          AiJobStatus    @default(pending)
+  progress        Int            @default(0)
+  input           Json
+  output          Json?
+  error           String?
+  retryCount      Int            @default(0)
+  queueJobId      String?
+  model           String?
+  promptVersionId String?
+  promptVersion   PromptVersion? @relation(fields: [promptVersionId], references: [id])
+  tokenUsage      Int            @default(0)
+  latencyMs       Int?
+  inputHash       String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([userId, status])
+  @@index([userId, createdAt])
   @@index([type, status])
+  @@index([inputHash])
 }
 
 model PromptVersion {
@@ -274,6 +285,7 @@ model PromptVersion {
   outputSchema Json
   questions    Question[]
   answers      Answer[]
+  aiJobs       AiJob[]
   createdAt    DateTime   @default(now())
 
   @@unique([name, version])

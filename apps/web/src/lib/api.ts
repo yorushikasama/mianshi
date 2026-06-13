@@ -1,5 +1,9 @@
 import type {
   Answer,
+  AiJob,
+  AiJobListResult,
+  AiJobStatus,
+  CreateAiJobInput,
   PracticeAttemptInput,
   PracticeAttemptResult,
   PracticeReviewState,
@@ -145,6 +149,39 @@ export function buildReviewOverviewPath(input?: { dueLimit?: number; recentLimit
 
 export async function fetchReviewOverview(input?: { dueLimit?: number; recentLimit?: number }) {
   return request<ReviewOverview>(buildReviewOverviewPath(input), {
+    auth: true,
+  });
+}
+
+export function buildAiJobsPath(input?: { status?: AiJobStatus; page?: number; pageSize?: number }) {
+  const searchParams = new URLSearchParams();
+
+  if (input?.status) {
+    searchParams.set("status", input.status);
+  }
+
+  if (input?.page) {
+    searchParams.set("page", String(input.page));
+  }
+
+  if (input?.pageSize) {
+    searchParams.set("pageSize", String(input.pageSize));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/ai/jobs?${query}` : "/ai/jobs";
+}
+
+export async function fetchAiJobs(input?: { status?: AiJobStatus; page?: number; pageSize?: number }) {
+  return request<AiJobListResult>(buildAiJobsPath(input), {
+    auth: true,
+  });
+}
+
+export async function createAiJob(input: CreateAiJobInput) {
+  return request<AiJob>("/ai/jobs", {
+    method: "POST",
+    body: JSON.stringify(input),
     auth: true,
   });
 }

@@ -1,11 +1,12 @@
 import { Module } from "@nestjs/common";
+import { AiJobModule } from "./ai-jobs/ai-job.module";
 import { AuthController } from "./auth/auth.controller";
 import { AUTH_USER_REPOSITORY, AuthService } from "./auth/auth.service";
 import { BearerAuthGuard } from "./auth/bearer-auth.guard";
 import { PrismaAuthUserRepository } from "./auth/prisma-auth-user.repository";
 import { CatalogController } from "./catalog/catalog.controller";
 import { CatalogService } from "./catalog/catalog.service";
-import { PrismaService } from "./database/prisma.service";
+import { DatabaseModule } from "./database/database.module";
 import { HealthController } from "./health/health.controller";
 import { PracticeController } from "./practice/practice.controller";
 import { PrismaPracticeAttemptRepository } from "./practice/prisma-practice-attempt.repository";
@@ -18,10 +19,10 @@ import { ReviewController } from "./review/review.controller";
 import { REVIEW_REPOSITORY, ReviewService } from "./review/review.service";
 
 @Module({
+  imports: [DatabaseModule, AiJobModule],
   controllers: [HealthController, AuthController, CatalogController, QuestionController, PracticeController, ReviewController],
   providers: [
     CatalogService,
-    PrismaService,
     PrismaAuthUserRepository,
     AuthService,
     BearerAuthGuard,

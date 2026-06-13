@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
+  buildAiJobsPath,
   buildApiUrl,
   buildPracticeAttemptsPath,
   buildReviewOverviewPath,
   clearAccessToken,
+  createAiJob,
+  fetchAiJobs,
   fetchReviewOverview,
   fetchPracticeAttempts,
   getAccessToken,
@@ -40,6 +43,12 @@ describe("web API client helpers", () => {
   it("builds review overview paths with bounded query params", () => {
     expect(buildReviewOverviewPath({ dueLimit: 6, recentLimit: 4 })).toBe(
       "/review/overview?dueLimit=6&recentLimit=4",
+    );
+  });
+
+  it("builds AI job list paths with optional status and pagination", () => {
+    expect(buildAiJobsPath({ status: "pending", page: 2, pageSize: 10 })).toBe(
+      "/ai/jobs?status=pending&page=2&pageSize=10",
     );
   });
 
@@ -80,6 +89,78 @@ describe("web API client helpers", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/review/overview?dueLimit=6&recentLimit=4",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("fetches protected AI jobs with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        totalPages: 0,
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchAiJobs({ status: "pending" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/ai/jobs?status=pending",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("creates protected AI jobs with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        id: "job_1",
+        userId: "user_1",
+        type: "generate_questions",
+        status: "pending",
+        progress: 0,
+        input: { domainSlug: "java_backend" },
+        output: null,
+        error: null,
+        retryCount: 0,
+        queueJobId: "job_1",
+        model: null,
+        promptVersionId: null,
+        tokenUsage: 0,
+        latencyMs: null,
+        inputHash: "hash_1",
+        startedAt: null,
+        completedAt: null,
+        createdAt: "2026-06-12T00:00:00.000Z",
+        updatedAt: "2026-06-12T00:00:00.000Z",
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await createAiJob({
+      type: "generate_questions",
+      input: { domainSlug: "java_backend" },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/ai/jobs",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          type: "generate_questions",
+          input: { domainSlug: "java_backend" },
+        }),
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",
         }),
