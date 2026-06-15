@@ -1,15 +1,10 @@
 import { z } from "zod";
+import { fsrs, Rating } from "ts-fsrs";
 import type { Answer, Question } from "./domain";
-import { fsrsRatingNames, scoreToFsrsRating } from "./review";
+import type { ScoreAttemptOutput } from "./ai-generation";
+import { fsrsRatingNames, scoreToFsrsRating, type FsrsRatingName } from "./review";
 
 const dayMs = 24 * 60 * 60 * 1000;
-
-const nextReviewDaysByRating = {
-  again: 1,
-  hard: 2,
-  good: 5,
-  easy: 10,
-} satisfies Record<(typeof fsrsRatingNames)[number], number>;
 
 export const PracticeAttemptInputSchema = z.object({
   questionId: z.string().min(1),
@@ -45,6 +40,19 @@ export type PracticeAttemptInput = z.infer<typeof PracticeAttemptInputSchema>;
 export type PracticeAttemptResult = z.infer<typeof PracticeAttemptResultSchema>;
 export type PracticeReviewState = z.infer<typeof PracticeReviewStateSchema>;
 
+export interface PracticeReviewMemoryState {
+  stability?: number | null;
+  difficulty?: number | null;
+  lastReviewedAt?: Date | string | null;
+}
+
+export interface ScheduledPracticeReview {
+  rating: FsrsRatingName;
+  stability: number;
+  difficulty: number;
+  nextReviewAt: string;
+}
+
 export interface EvaluatePracticeAttemptInput {
   question: Question;
   answer: Answer;
@@ -62,22 +70,89 @@ export function evaluatePracticeAttempt(input: EvaluatePracticeAttemptInput): Pr
   const missingKeyPoints = keyPoints.filter((point) => !matchedKeyPoints.includes(point));
   const coverage = keyPoints.length === 0 ? 0 : matchedKeyPoints.length / keyPoints.length;
   const score = scoreSubmission(coverage, submittedAnswer);
-  const rating = scoreToFsrsRating({ aiScore: score, userRating: input.selfRating });
-  const nextReviewAt = new Date(now.getTime() + nextReviewDaysByRating[rating] * dayMs).toISOString();
+  const schedule = scheduleNextPracticeReview({
+    aiScore: score,
+    userRating: input.selfRating,
+    now,
+  });
 
   return PracticeAttemptResultSchema.parse({
     id: `attempt_${input.question.id}_${now.getTime()}`,
     questionId: input.question.id,
     submittedAnswer,
     score,
-    rating,
-    feedbackSummary: buildFeedbackSummary(matchedKeyPoints.length, keyPoints.length, rating),
+    rating: schedule.rating,
+    feedbackSummary: buildFeedbackSummary(matchedKeyPoints.length, keyPoints.length, schedule.rating),
     matchedKeyPoints,
     missingKeyPoints,
     followUpQuestions: missingKeyPoints.slice(0, 3).map((point) => `请补充「${point}」在这道题里的作用和面试表达。`),
-    nextReviewAt,
+    nextReviewAt: schedule.nextReviewAt,
     createdAt: now.toISOString(),
   });
+}
+
+export function buildPracticeAttemptFromAiScore(input: {
+  questionId: string;
+  submittedAnswer: string;
+  scoreOutput: ScoreAttemptOutput;
+  selfRating?: FsrsRatingName;
+  now?: Date;
+  previousReviewState?: PracticeReviewMemoryState | null;
+}): PracticeAttemptResult {
+  const now = input.now ?? new Date();
+  const submittedAnswer = input.submittedAnswer.trim();
+  const schedule = scheduleNextPracticeReview({
+    aiScore: input.scoreOutput.score,
+    userRating: input.selfRating,
+    now,
+    previousReviewState: input.previousReviewState,
+  });
+
+  return PracticeAttemptResultSchema.parse({
+    id: `attempt_${input.questionId}_${now.getTime()}`,
+    questionId: input.questionId,
+    submittedAnswer,
+    score: input.scoreOutput.score,
+    rating: schedule.rating,
+    feedbackSummary: input.scoreOutput.feedbackSummary,
+    matchedKeyPoints: input.scoreOutput.matchedKeyPoints,
+    missingKeyPoints: input.scoreOutput.missingKeyPoints,
+    followUpQuestions: input.scoreOutput.followUpQuestions,
+    nextReviewAt: schedule.nextReviewAt,
+    createdAt: now.toISOString(),
+  });
+}
+
+export function scheduleNextPracticeReview(input: {
+  aiScore: number;
+  userRating?: FsrsRatingName;
+  now?: Date;
+  previousReviewState?: PracticeReviewMemoryState | null;
+}): ScheduledPracticeReview {
+  const now = input.now ?? new Date();
+  const rating = scoreToFsrsRating({ aiScore: input.aiScore, userRating: input.userRating });
+  const scheduler = fsrs({ enable_fuzz: false });
+  const memoryState =
+    typeof input.previousReviewState?.stability === "number" &&
+    typeof input.previousReviewState?.difficulty === "number"
+      ? {
+          stability: input.previousReviewState.stability,
+          difficulty: input.previousReviewState.difficulty,
+        }
+      : null;
+  const elapsedDays = input.previousReviewState?.lastReviewedAt
+    ? Math.max(0, Math.round((now.getTime() - new Date(input.previousReviewState.lastReviewedAt).getTime()) / dayMs))
+    : 0;
+  const nextState = scheduler.next_state(memoryState, elapsedDays, toFsrsRatingValue(rating));
+  const nextInterval = scheduler.next_interval(nextState.stability, elapsedDays);
+  const nextReviewAt = new Date(now.getTime() + nextInterval * dayMs).toISOString();
+
+  return {
+    rating,
+    stability: nextState.stability,
+    difficulty: nextState.difficulty,
+    nextReviewAt,
+  };
 }
 
 export function buildPracticeReviewState(
@@ -118,4 +193,15 @@ function buildFeedbackSummary(matchedCount: number, totalCount: number, rating: 
   }
 
   return `覆盖 ${matchedCount}/${totalCount} 个关键点，当前复习评级为 ${rating}。`;
+}
+
+function toFsrsRatingValue(rating: FsrsRatingName) {
+  const ratingValueByName = {
+    again: Rating.Again,
+    hard: Rating.Hard,
+    good: Rating.Good,
+    easy: Rating.Easy,
+  } satisfies Record<FsrsRatingName, Rating>;
+
+  return ratingValueByName[rating];
 }

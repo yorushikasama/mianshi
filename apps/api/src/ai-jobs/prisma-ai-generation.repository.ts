@@ -8,6 +8,7 @@ import type {
   PersistedGeneratedQuestion,
   PromptVersionRecord,
   QuestionContext,
+  ScoringContext,
 } from "./ai-task.executor";
 
 type QuestionWithContextRelations = {
@@ -22,6 +23,20 @@ type QuestionWithContextRelations = {
   domain: { slug: string };
   category: { slug: string };
   tags: { tag: { name: string } }[];
+};
+
+type QuestionWithScoringRelations = QuestionWithContextRelations & {
+  answers: {
+    id: string;
+    answerType: string;
+    content: string;
+    keyPoints: unknown;
+  }[];
+  reviewStates: {
+    stability: number | null;
+    difficulty: number | null;
+    lastReviewedAt: Date | null;
+  }[];
 };
 
 @Injectable()
@@ -144,6 +159,112 @@ export class PrismaAiGenerationRepository implements AiGenerationRepository {
       promptVersionId: answer.promptVersionId ?? input.promptVersionId,
       tokenUsage: answer.tokenUsage,
     };
+  }
+
+  async findScoringContext(input: { userId: string; questionId: string }): Promise<ScoringContext | null> {
+    const question = await this.prisma.question.findFirst({
+      where: {
+        id: input.questionId,
+        OR: [{ userId: null }, { userId: input.userId }],
+      },
+      include: {
+        ...questionContextRelations,
+        answers: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            answerType: true,
+            content: true,
+            keyPoints: true,
+          },
+        },
+        reviewStates: {
+          where: { userId: input.userId },
+          take: 1,
+        },
+      },
+    });
+
+    if (!question) {
+      return null;
+    }
+
+    const typedQuestion = question as QuestionWithScoringRelations;
+    const answer = typedQuestion.answers[0];
+
+    if (!answer) {
+      return null;
+    }
+
+    const reviewState = typedQuestion.reviewStates[0];
+
+    return {
+      question: toQuestionContext(typedQuestion),
+      answer: {
+        id: answer.id,
+        answerType: answer.answerType,
+        content: answer.content,
+        keyPoints: asStringArray(answer.keyPoints),
+      },
+      reviewState: reviewState
+        ? {
+            stability: reviewState.stability,
+            difficulty: reviewState.difficulty,
+            lastReviewedAt: reviewState.lastReviewedAt,
+          }
+        : null,
+    };
+  }
+
+  async createScoredPracticeAttempt(input: Parameters<AiGenerationRepository["createScoredPracticeAttempt"]>[0]) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.practiceAttempt.create({
+        data: {
+          id: input.attempt.id,
+          userId: input.userId,
+          questionId: input.attempt.questionId,
+          userAnswer: input.attempt.submittedAnswer,
+          aiScore: input.attempt.score,
+          rating: input.attempt.rating,
+          aiFeedback: input.attempt.feedbackSummary,
+          matchedPoints: toPrismaJson(input.attempt.matchedKeyPoints),
+          missingPoints: toPrismaJson(input.attempt.missingKeyPoints),
+          followupQuestions: toPrismaJson(input.attempt.followUpQuestions),
+          nextReviewAt: new Date(input.attempt.nextReviewAt),
+          createdAt: new Date(input.attempt.createdAt),
+        },
+      });
+
+      await tx.reviewState.upsert({
+        where: {
+          userId_questionId: {
+            userId: input.userId,
+            questionId: input.attempt.questionId,
+          },
+        },
+        create: {
+          userId: input.userId,
+          questionId: input.attempt.questionId,
+          stability: input.reviewSchedule.stability,
+          difficulty: input.reviewSchedule.difficulty,
+          dueAt: new Date(input.reviewSchedule.nextReviewAt),
+          lastReviewedAt: new Date(input.attempt.createdAt),
+          reviewCount: 1,
+        },
+        update: {
+          stability: input.reviewSchedule.stability,
+          difficulty: input.reviewSchedule.difficulty,
+          dueAt: new Date(input.reviewSchedule.nextReviewAt),
+          lastReviewedAt: new Date(input.attempt.createdAt),
+          reviewCount: {
+            increment: 1,
+          },
+        },
+      });
+    });
+
+    return input.attempt;
   }
 }
 

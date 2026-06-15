@@ -114,4 +114,87 @@ describe("OpenAiStructuredOutputClient", () => {
       }),
     ).rejects.toThrow("OpenAI refused structured output");
   });
+
+  it("scores practice attempts with structured output parsing", async () => {
+    const parse = vi.fn(async () => ({
+      model: "gpt-5.5",
+      usage: { total_tokens: 198 },
+      choices: [
+        {
+          message: {
+            parsed: {
+              score: 86,
+              feedbackSummary: "回答覆盖主要点，可以补充线上排查指标。",
+              matchedKeyPoints: ["GC Roots", "可达性分析"],
+              missingKeyPoints: ["GC 日志"],
+              followUpQuestions: ["如果 Full GC 频繁，你会先看哪些指标？"],
+            },
+          },
+        },
+      ],
+    }));
+    const client = new OpenAiStructuredOutputClient(
+      { chat: { completions: { parse } } } as never,
+      { apiKey: "key", model: "gpt-5.5" },
+    );
+
+    const result = await client.scoreAttempt({
+      input: {
+        questionId: "q_1",
+        submittedAnswer: "GC Roots 是可达性分析的起点。",
+      },
+      question: {
+        id: "q_1",
+        userId: null,
+        domainSlug: "java_backend",
+        categorySlug: "jvm",
+        type: "scenario",
+        difficulty: "medium",
+        title: "线上 Full GC 频繁时你如何排查？",
+        content: "请结合 JVM 指标、日志和业务流量说明你的排查路径。",
+        tags: ["JVM", "GC"],
+      },
+      answer: {
+        id: "answer_1",
+        answerType: "standard",
+        content: "参考答案",
+        keyPoints: ["GC Roots", "可达性分析", "GC 日志"],
+      },
+      promptVersion: {
+        ...promptVersion,
+        name: "score_attempt:java_backend",
+      },
+    });
+
+    expect(parse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-5.5",
+        response_format: expect.any(Object),
+        messages: [
+          { role: "system", content: "system prompt" },
+          {
+            role: "user",
+            content: expect.stringContaining("score_attempt"),
+          },
+        ],
+      }),
+    );
+    expect(parse.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining("GC Roots 是可达性分析的起点。"),
+          }),
+        ]),
+      }),
+    );
+    expect(result).toEqual({
+      output: expect.objectContaining({
+        score: 86,
+        feedbackSummary: "回答覆盖主要点，可以补充线上排查指标。",
+      }),
+      model: "gpt-5.5",
+      tokenUsage: 198,
+    });
+  });
 });

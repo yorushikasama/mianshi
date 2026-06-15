@@ -21,6 +21,15 @@ export const GenerateAnswerOutputSchema = z.object({
   keyPoints: z.array(z.string().trim().min(1).max(400)).min(1).max(30),
 });
 
+export const ScoreAttemptOutputSchema = z.object({
+  score: z.number().int().min(0).max(100),
+  feedbackSummary: z.string().trim().min(1).max(2000),
+  matchedKeyPoints: z.array(z.string().trim().min(1).max(400)).max(30),
+  missingKeyPoints: z.array(z.string().trim().min(1).max(400)).max(30),
+  followUpQuestions: z.array(z.string().trim().min(1).max(500)).max(8),
+});
+
 export type GeneratedQuestion = z.infer<typeof GeneratedQuestionSchema>;
 export type GenerateQuestionsOutput = z.infer<typeof GenerateQuestionsOutputSchema>;
 export type GenerateAnswerOutput = z.infer<typeof GenerateAnswerOutputSchema>;
+export type ScoreAttemptOutput = z.infer<typeof ScoreAttemptOutputSchema>;

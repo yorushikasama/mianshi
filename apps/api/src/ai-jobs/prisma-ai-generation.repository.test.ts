@@ -215,4 +215,157 @@ describe("PrismaAiGenerationRepository", () => {
     });
     expect(answer.status).toBe("draft");
   });
+
+  it("loads scoring context with visible question, latest answer, and user review memory", async () => {
+    const prisma = {
+      question: {
+        findFirst: vi.fn(async () => ({
+          id: "q_1",
+          userId: "user_1",
+          domain: { slug: "java_backend" },
+          category: { slug: "jvm" },
+          type: "scenario",
+          difficulty: "medium",
+          title: "线上 Full GC 频繁时你如何排查？",
+          content: "请结合 JVM 指标、日志和业务流量说明你的排查路径。",
+          tags: [{ tag: { name: "JVM" } }],
+          answers: [
+            {
+              id: "answer_1",
+              answerType: "standard",
+              content: "参考答案",
+              keyPoints: ["GC Roots", "GC 日志"],
+            },
+          ],
+          reviewStates: [
+            {
+              stability: 2.3,
+              difficulty: 4.2,
+              lastReviewedAt: new Date("2026-06-07T00:00:00.000Z"),
+            },
+          ],
+        })),
+      },
+    };
+    const repository = new PrismaAiGenerationRepository(prisma as never);
+
+    const context = await repository.findScoringContext({
+      userId: "user_1",
+      questionId: "q_1",
+    });
+
+    expect(prisma.question.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "q_1",
+        OR: [{ userId: null }, { userId: "user_1" }],
+      },
+      include: expect.objectContaining({
+        answers: expect.objectContaining({
+          take: 1,
+        }),
+        reviewStates: {
+          where: { userId: "user_1" },
+          take: 1,
+        },
+      }),
+    });
+    expect(context).toEqual({
+      question: expect.objectContaining({ id: "q_1", domainSlug: "java_backend" }),
+      answer: {
+        id: "answer_1",
+        answerType: "standard",
+        content: "参考答案",
+        keyPoints: ["GC Roots", "GC 日志"],
+      },
+      reviewState: {
+        stability: 2.3,
+        difficulty: 4.2,
+        lastReviewedAt: new Date("2026-06-07T00:00:00.000Z"),
+      },
+    });
+  });
+
+  it("creates scored practice attempts and updates FSRS review memory", async () => {
+    const tx = {
+      practiceAttempt: {
+        create: vi.fn(async () => undefined),
+      },
+      reviewState: {
+        upsert: vi.fn(async () => undefined),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback) => callback(tx)),
+    };
+    const repository = new PrismaAiGenerationRepository(prisma as never);
+
+    const attempt = {
+      id: "attempt_q_1_1780876800000",
+      questionId: "q_1",
+      submittedAnswer: "GC Roots 是可达性分析的起点。",
+      score: 86,
+      rating: "easy",
+      feedbackSummary: "回答不错。",
+      matchedKeyPoints: ["GC Roots"],
+      missingKeyPoints: ["GC 日志"],
+      followUpQuestions: ["如果 Full GC 频繁，你会先看什么？"],
+      nextReviewAt: "2026-06-16T00:00:00.000Z",
+      createdAt: "2026-06-08T00:00:00.000Z",
+    } as const;
+
+    const savedAttempt = await repository.createScoredPracticeAttempt({
+      userId: "user_1",
+      attempt,
+      reviewSchedule: {
+        rating: "easy",
+        stability: 8.2956,
+        difficulty: 1,
+        nextReviewAt: "2026-06-16T00:00:00.000Z",
+      },
+    });
+
+    expect(tx.practiceAttempt.create).toHaveBeenCalledWith({
+      data: {
+        id: "attempt_q_1_1780876800000",
+        userId: "user_1",
+        questionId: "q_1",
+        userAnswer: "GC Roots 是可达性分析的起点。",
+        aiScore: 86,
+        rating: "easy",
+        aiFeedback: "回答不错。",
+        matchedPoints: ["GC Roots"],
+        missingPoints: ["GC 日志"],
+        followupQuestions: ["如果 Full GC 频繁，你会先看什么？"],
+        nextReviewAt: new Date("2026-06-16T00:00:00.000Z"),
+        createdAt: new Date("2026-06-08T00:00:00.000Z"),
+      },
+    });
+    expect(tx.reviewState.upsert).toHaveBeenCalledWith({
+      where: {
+        userId_questionId: {
+          userId: "user_1",
+          questionId: "q_1",
+        },
+      },
+      create: {
+        userId: "user_1",
+        questionId: "q_1",
+        stability: 8.2956,
+        difficulty: 1,
+        dueAt: new Date("2026-06-16T00:00:00.000Z"),
+        lastReviewedAt: new Date("2026-06-08T00:00:00.000Z"),
+        reviewCount: 1,
+      },
+      update: {
+        stability: 8.2956,
+        difficulty: 1,
+        dueAt: new Date("2026-06-16T00:00:00.000Z"),
+        lastReviewedAt: new Date("2026-06-08T00:00:00.000Z"),
+        reviewCount: {
+          increment: 1,
+        },
+      },
+    });
+    expect(savedAttempt).toBe(attempt);
+  });
 });

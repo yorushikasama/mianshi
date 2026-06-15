@@ -3,11 +3,18 @@ import { z } from "zod";
 import {
   GenerateAnswerOutputSchema,
   GenerateQuestionsOutputSchema,
+  ScoreAttemptOutputSchema,
   answerTypes,
+  buildPracticeAttemptFromAiScore,
+  fsrsRatingNames,
+  scheduleNextPracticeReview,
   type DifficultyLevel,
   type GenerateAnswerOutput,
   type GeneratedQuestion,
+  type PracticeAttemptResult,
   type QuestionType,
+  type ScheduledPracticeReview,
+  type ScoreAttemptOutput,
 } from "@mianshi/shared";
 import {
   AI_GENERATION_REPOSITORY,
@@ -28,6 +35,13 @@ const GenerateQuestionsInputSchema = z.object({
 const GenerateAnswerInputSchema = z.object({
   questionId: z.string().trim().min(1),
   answerType: z.enum(answerTypes).optional(),
+});
+
+const ScoreAttemptInputSchema = z.object({
+  questionId: z.string().trim().min(1),
+  submittedAnswer: z.string().trim().min(4).max(4000),
+  selfRating: z.enum(fsrsRatingNames).optional(),
+  now: z.coerce.date().optional(),
 });
 
 export interface PromptVersionRecord {
@@ -66,6 +80,23 @@ export interface PersistedDraftAnswer extends GenerateAnswerOutput {
   tokenUsage: number;
 }
 
+export interface AnswerContext {
+  id: string;
+  answerType: string;
+  content: string;
+  keyPoints: string[];
+}
+
+export interface ScoringContext {
+  question: QuestionContext;
+  answer: AnswerContext;
+  reviewState: {
+    stability?: number | null;
+    difficulty?: number | null;
+    lastReviewedAt?: Date | string | null;
+  } | null;
+}
+
 export interface AiGenerationRepository {
   upsertPromptVersion(input: Omit<PromptVersionRecord, "id">): Promise<PromptVersionRecord>;
   createGeneratedQuestions(input: {
@@ -83,6 +114,12 @@ export interface AiGenerationRepository {
     promptVersionId: string;
     tokenUsage: number;
   }): Promise<PersistedDraftAnswer>;
+  findScoringContext(input: { userId: string; questionId: string }): Promise<ScoringContext | null>;
+  createScoredPracticeAttempt(input: {
+    userId: string;
+    attempt: PracticeAttemptResult;
+    reviewSchedule: ScheduledPracticeReview;
+  }): Promise<PracticeAttemptResult>;
 }
 
 export interface AiModelClientResult {
@@ -99,6 +136,12 @@ export interface AiModelClient {
   generateAnswer(input: {
     input: z.infer<typeof GenerateAnswerInputSchema>;
     question: QuestionContext;
+    promptVersion: PromptVersionRecord;
+  }): Promise<AiModelClientResult>;
+  scoreAttempt(input: {
+    input: z.infer<typeof ScoreAttemptInputSchema>;
+    question: QuestionContext;
+    answer: AnswerContext;
     promptVersion: PromptVersionRecord;
   }): Promise<AiModelClientResult>;
 }
@@ -119,6 +162,10 @@ export class AiTaskExecutorService implements AiTaskExecutor {
 
     if (input.type === "generate_answer") {
       return this.generateAnswer(input);
+    }
+
+    if (input.type === "score_attempt") {
+      return this.scoreAttempt(input);
     }
 
     throw new Error(`AI task type is not supported yet: ${input.type}`);
@@ -191,6 +238,62 @@ export class AiTaskExecutorService implements AiTaskExecutor {
       tokenUsage: response.tokenUsage,
     };
   }
+
+  private async scoreAttempt(input: AiTaskExecutionInput): Promise<AiTaskExecutionResult> {
+    const parsedInput = ScoreAttemptInputSchema.parse(input.input);
+    const context = await this.repository.findScoringContext({
+      userId: input.userId,
+      questionId: parsedInput.questionId,
+    });
+
+    if (!context) {
+      throw new Error("Question or answer not found");
+    }
+
+    const promptVersion = await this.repository.upsertPromptVersion({
+      name: `score_attempt:${context.question.domainSlug}`,
+      version: "v1",
+      template: scoreAttemptPromptTemplate(),
+      outputSchema: ScoreAttemptOutputSchema.toJSONSchema() as Record<string, unknown>,
+    });
+    const response = await this.modelClient.scoreAttempt({
+      input: parsedInput,
+      question: context.question,
+      answer: context.answer,
+      promptVersion,
+    });
+    const scoreOutput: ScoreAttemptOutput = ScoreAttemptOutputSchema.parse(response.output);
+    const now = parsedInput.now ?? new Date();
+    const attempt = buildPracticeAttemptFromAiScore({
+      questionId: context.question.id,
+      submittedAnswer: parsedInput.submittedAnswer,
+      scoreOutput,
+      selfRating: parsedInput.selfRating,
+      now,
+      previousReviewState: context.reviewState,
+    });
+    const reviewSchedule = scheduleNextPracticeReview({
+      aiScore: scoreOutput.score,
+      userRating: parsedInput.selfRating,
+      now,
+      previousReviewState: context.reviewState,
+    });
+    const savedAttempt = await this.repository.createScoredPracticeAttempt({
+      userId: input.userId,
+      attempt,
+      reviewSchedule,
+    });
+
+    return {
+      output: {
+        attempt: savedAttempt,
+        reviewSchedule,
+      },
+      model: response.model,
+      promptVersionId: promptVersion.id,
+      tokenUsage: response.tokenUsage,
+    };
+  }
 }
 
 function generateQuestionsPromptTemplate() {
@@ -206,5 +309,13 @@ function generateAnswerPromptTemplate() {
     "你是一个技术面试复习系统的答案生成器。",
     "根据题目上下文生成可用于面试表达的答案，保留关键要点。",
     "不要覆盖用户已有答案，后端会把结果保存为 draft。",
+  ].join("\n");
+}
+
+function scoreAttemptPromptTemplate() {
+  return [
+    "你是一个技术面试复习系统的评分器。",
+    "根据题目、参考答案要点和用户回答，输出 0-100 分、简短反馈、命中要点、缺失要点和可继续追问的问题。",
+    "不要输出 FSRS rating 或复习时间，后端会根据分数和用户自评计算复习调度。",
   ].join("\n");
 }

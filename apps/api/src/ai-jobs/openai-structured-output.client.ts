@@ -1,7 +1,13 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import { GenerateAnswerOutputSchema, GenerateQuestionsOutputSchema } from "@mianshi/shared";
-import type { AiModelClient, AiModelClientResult, PromptVersionRecord, QuestionContext } from "./ai-task.executor";
+import { GenerateAnswerOutputSchema, GenerateQuestionsOutputSchema, ScoreAttemptOutputSchema } from "@mianshi/shared";
+import type {
+  AiModelClient,
+  AiModelClientResult,
+  AnswerContext,
+  PromptVersionRecord,
+  QuestionContext,
+} from "./ai-task.executor";
 
 type RuntimeEnv = {
   OPENAI_API_KEY?: string;
@@ -106,6 +112,45 @@ export class OpenAiStructuredOutputClient implements AiModelClient {
         },
       ],
       response_format: zodResponseFormat(GenerateAnswerOutputSchema, "generate_answer_output"),
+    });
+
+    return toModelClientResult(completion);
+  }
+
+  async scoreAttempt(input: {
+    input: {
+      questionId: string;
+      submittedAnswer: string;
+      selfRating?: string;
+      now?: Date;
+    };
+    question: QuestionContext;
+    answer: AnswerContext;
+    promptVersion: PromptVersionRecord;
+  }): Promise<AiModelClientResult> {
+    const completion = await this.client.chat.completions.parse({
+      model: this.config.model,
+      messages: [
+        { role: "system", content: input.promptVersion.template },
+        {
+          role: "user",
+          content: JSON.stringify(
+            {
+              task: "score_attempt",
+              promptVersion: {
+                name: input.promptVersion.name,
+                version: input.promptVersion.version,
+              },
+              input: input.input,
+              question: input.question,
+              answer: input.answer,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+      response_format: zodResponseFormat(ScoreAttemptOutputSchema, "score_attempt_output"),
     });
 
     return toModelClientResult(completion);

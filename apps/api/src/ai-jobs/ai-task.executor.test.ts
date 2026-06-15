@@ -128,6 +128,78 @@ describe("AiTaskExecutorService", () => {
     });
   });
 
+  it("scores a practice attempt with structured output and persists FSRS review state", async () => {
+    const repository = createRepository();
+    const modelClient = createModelClient({
+      scoreOutput: {
+        score: 86,
+        feedbackSummary: "回答覆盖了 GC Roots 的核心定义，可以补充线上排查指标。",
+        matchedKeyPoints: ["GC Roots", "可达性分析"],
+        missingKeyPoints: ["GC 日志"],
+        followUpQuestions: ["如果 Full GC 频繁，你会先看哪些 JVM 指标？"],
+      },
+      tokenUsage: 198,
+    });
+    const executor = new AiTaskExecutorService(repository as never, modelClient as never);
+
+    const result = await executor.execute({
+      jobId: "job_4",
+      userId: "user_1",
+      type: "score_attempt",
+      input: {
+        questionId: "q_1",
+        submittedAnswer: "GC Roots 是可达性分析的起点，包括线程栈、静态变量、常量和 JNI 引用。",
+        now: "2026-06-08T00:00:00.000Z",
+      },
+    });
+
+    expect(repository.findScoringContext).toHaveBeenCalledWith({
+      userId: "user_1",
+      questionId: "q_1",
+    });
+    expect(modelClient.scoreAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          questionId: "q_1",
+          submittedAnswer: "GC Roots 是可达性分析的起点，包括线程栈、静态变量、常量和 JNI 引用。",
+          now: new Date("2026-06-08T00:00:00.000Z"),
+        },
+        question: expect.objectContaining({ id: "q_1" }),
+        answer: expect.objectContaining({ keyPoints: ["GC Roots", "可达性分析", "GC 日志"] }),
+      }),
+    );
+    expect(repository.createScoredPracticeAttempt).toHaveBeenCalledWith({
+      userId: "user_1",
+      attempt: expect.objectContaining({
+        questionId: "q_1",
+        score: 86,
+        rating: "easy",
+        nextReviewAt: "2026-06-16T00:00:00.000Z",
+      }),
+      reviewSchedule: expect.objectContaining({
+        rating: "easy",
+        nextReviewAt: "2026-06-16T00:00:00.000Z",
+        stability: expect.any(Number),
+        difficulty: expect.any(Number),
+      }),
+    });
+    expect(result).toEqual({
+      output: {
+        attempt: expect.objectContaining({
+          id: "attempt_q_1_1780876800000",
+          score: 86,
+          rating: "easy",
+        }),
+        reviewSchedule: expect.objectContaining({
+          rating: "easy",
+        }),
+      },
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 198,
+    });
+  });
+
   it("rejects invalid structured answer output before writing it to storage", async () => {
     const repository = createRepository();
     const modelClient = createModelClient({
@@ -151,6 +223,34 @@ describe("AiTaskExecutorService", () => {
     ).rejects.toThrow();
 
     expect(repository.createDraftAnswer).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid structured score output before saving the practice attempt", async () => {
+    const repository = createRepository();
+    const modelClient = createModelClient({
+      scoreOutput: {
+        score: 101,
+        feedbackSummary: "分数越界。",
+        matchedKeyPoints: [],
+        missingKeyPoints: [],
+        followUpQuestions: [],
+      },
+    });
+    const executor = new AiTaskExecutorService(repository as never, modelClient as never);
+
+    await expect(
+      executor.execute({
+        jobId: "job_5",
+        userId: "user_1",
+        type: "score_attempt",
+        input: {
+          questionId: "q_1",
+          submittedAnswer: "GC Roots 是可达性分析的起点。",
+        },
+      }),
+    ).rejects.toThrow();
+
+    expect(repository.createScoredPracticeAttempt).not.toHaveBeenCalled();
   });
 });
 
@@ -191,12 +291,34 @@ function createRepository() {
       promptVersionId: input.promptVersionId,
       tokenUsage: input.tokenUsage,
     })),
+    findScoringContext: vi.fn(async () => ({
+      question: {
+        id: "q_1",
+        userId: null,
+        domainSlug: "java_backend",
+        categorySlug: "jvm",
+        type: "scenario",
+        difficulty: "medium",
+        title: "线上 Full GC 频繁时你如何排查？",
+        content: "请结合 JVM 指标、日志和业务流量说明你的排查路径。",
+        tags: ["JVM", "GC"],
+      },
+      answer: {
+        id: "answer_seed_1",
+        answerType: "standard",
+        content: "GC Roots 是可达性分析的起点，排查时要结合 GC 日志和对象分配热点。",
+        keyPoints: ["GC Roots", "可达性分析", "GC 日志"],
+      },
+      reviewState: null,
+    })),
+    createScoredPracticeAttempt: vi.fn(async (input) => input.attempt),
   };
 }
 
 function createModelClient(input: {
   questionsOutput?: unknown;
   answerOutput?: unknown;
+  scoreOutput?: unknown;
   tokenUsage?: number;
 }) {
   return {
@@ -207,6 +329,11 @@ function createModelClient(input: {
     })),
     generateAnswer: vi.fn(async () => ({
       output: input.answerOutput,
+      model: "gpt-5.5",
+      tokenUsage: input.tokenUsage ?? 100,
+    })),
+    scoreAttempt: vi.fn(async () => ({
+      output: input.scoreOutput,
       model: "gpt-5.5",
       tokenUsage: input.tokenUsage ?? 100,
     })),

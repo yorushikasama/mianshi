@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { JAVA_BACKEND_SEED_ANSWERS, JAVA_BACKEND_SEED_QUESTIONS } from "./java-backend";
-import { PracticeAttemptInputSchema, buildPracticeReviewState, evaluatePracticeAttempt } from "./practice";
+import {
+  PracticeAttemptInputSchema,
+  buildPracticeAttemptFromAiScore,
+  buildPracticeReviewState,
+  evaluatePracticeAttempt,
+  scheduleNextPracticeReview,
+} from "./practice";
 
 describe("practice evaluation", () => {
   it("normalizes a practice submission before evaluation", () => {
@@ -33,7 +39,7 @@ describe("practice evaluation", () => {
     expect(result.rating).toBe("easy");
     expect(result.matchedKeyPoints).toContain("可达性分析");
     expect(result.missingKeyPoints).toHaveLength(0);
-    expect(result.nextReviewAt).toBe("2026-06-18T00:00:00.000Z");
+    expect(result.nextReviewAt).toBe("2026-06-16T00:00:00.000Z");
   });
 
   it("returns missing points and a lower rating for an incomplete answer", () => {
@@ -86,6 +92,37 @@ describe("practice evaluation", () => {
     expect(reviewState.lastScore).toBe(latestAttempt.score);
     expect(reviewState.rating).toBe("easy");
     expect(reviewState.lastPracticedAt).toBe("2026-06-09T00:00:00.000Z");
-    expect(reviewState.nextReviewAt).toBe("2026-06-19T00:00:00.000Z");
+    expect(reviewState.nextReviewAt).toBe("2026-06-17T00:00:00.000Z");
+  });
+
+  it("schedules reviews with ts-fsrs memory state instead of fixed day buckets", () => {
+    const first = scheduleNextPracticeReview({
+      aiScore: 92,
+      now: new Date("2026-06-08T00:00:00.000Z"),
+    });
+
+    expect(first.rating).toBe("easy");
+    expect(first.nextReviewAt).toBe("2026-06-16T00:00:00.000Z");
+    expect(first.stability).toBeGreaterThan(8);
+    expect(first.difficulty).toBeGreaterThanOrEqual(1);
+  });
+
+  it("builds a persisted practice attempt from AI score output", () => {
+    const attempt = buildPracticeAttemptFromAiScore({
+      questionId: "q_jvm_gc_roots",
+      submittedAnswer: "GC Roots 是可达性分析的起点，包括线程栈、静态变量、常量和 JNI 引用。",
+      scoreOutput: {
+        score: 86,
+        feedbackSummary: "回答覆盖主要点，可以补充排查顺序。",
+        matchedKeyPoints: ["可达性分析", "GC Roots"],
+        missingKeyPoints: ["排查顺序"],
+        followUpQuestions: ["如果线上 Full GC 频繁，你先看哪些指标？"],
+      },
+      now: new Date("2026-06-08T00:00:00.000Z"),
+    });
+
+    expect(attempt.rating).toBe("easy");
+    expect(attempt.nextReviewAt).toBe("2026-06-16T00:00:00.000Z");
+    expect(attempt.feedbackSummary).toBe("回答覆盖主要点，可以补充排查顺序。");
   });
 });

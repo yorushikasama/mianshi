@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GenerateAnswerOutputSchema, GenerateQuestionsOutputSchema } from "./ai-generation";
+import { GenerateAnswerOutputSchema, GenerateQuestionsOutputSchema, ScoreAttemptOutputSchema } from "./ai-generation";
 
 describe("AI generation structured output schemas", () => {
   it("accepts structured generated interview questions without hard-coding Java in the schema", () => {
@@ -27,6 +27,31 @@ describe("AI generation structured output schemas", () => {
         answerType: "standard",
         content: "需要结合 HashMap 的定位和扩容过程说明。",
         keyPoints: [],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts structured practice scoring without letting AI choose the FSRS rating", () => {
+    const output = ScoreAttemptOutputSchema.parse({
+      score: 82,
+      feedbackSummary: "回答覆盖了核心概念，但还缺少线上排查顺序。",
+      matchedKeyPoints: ["可达性分析", "GC Roots"],
+      missingKeyPoints: ["GC 日志", "对象分配热点"],
+      followUpQuestions: ["如果 GC 日志里出现 promotion failed，你会怎么继续分析？"],
+    });
+
+    expect(output.score).toBe(82);
+    expect(output).not.toHaveProperty("rating");
+  });
+
+  it("rejects practice scoring outside the normalized score range", () => {
+    expect(() =>
+      ScoreAttemptOutputSchema.parse({
+        score: 120,
+        feedbackSummary: "分数越界。",
+        matchedKeyPoints: [],
+        missingKeyPoints: [],
+        followUpQuestions: [],
       }),
     ).toThrow();
   });

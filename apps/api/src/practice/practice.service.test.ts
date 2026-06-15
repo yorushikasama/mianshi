@@ -41,7 +41,7 @@ describe("PracticeService", () => {
 
     expect(result.score).toBeGreaterThanOrEqual(85);
     expect(result.rating).toBe("easy");
-    expect(result.nextReviewAt).toBe("2026-06-18T00:00:00.000Z");
+    expect(result.nextReviewAt).toBe("2026-06-16T00:00:00.000Z");
   });
 
   it("rejects attempts for unknown questions", async () => {
