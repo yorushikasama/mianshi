@@ -1,10 +1,16 @@
 import OpenAI from "openai";
 import { zodResponseFormat } from "openai/helpers/zod";
-import { GenerateAnswerOutputSchema, GenerateQuestionsOutputSchema, ScoreAttemptOutputSchema } from "@mianshi/shared";
+import {
+  GenerateAnswerOutputSchema,
+  GenerateFollowupOutputSchema,
+  GenerateQuestionsOutputSchema,
+  ScoreAttemptOutputSchema,
+} from "@mianshi/shared";
 import type {
   AiModelClient,
   AiModelClientResult,
   AnswerContext,
+  FollowupContext,
   PromptVersionRecord,
   QuestionContext,
 } from "./ai-task.executor";
@@ -151,6 +157,41 @@ export class OpenAiStructuredOutputClient implements AiModelClient {
         },
       ],
       response_format: zodResponseFormat(ScoreAttemptOutputSchema, "score_attempt_output"),
+    });
+
+    return toModelClientResult(completion);
+  }
+
+  async generateFollowup(input: {
+    input: {
+      attemptId: string;
+      count: number;
+    };
+    context: FollowupContext;
+    promptVersion: PromptVersionRecord;
+  }): Promise<AiModelClientResult> {
+    const completion = await this.client.chat.completions.parse({
+      model: this.config.model,
+      messages: [
+        { role: "system", content: input.promptVersion.template },
+        {
+          role: "user",
+          content: JSON.stringify(
+            {
+              task: "generate_followup",
+              promptVersion: {
+                name: input.promptVersion.name,
+                version: input.promptVersion.version,
+              },
+              input: input.input,
+              context: input.context,
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+      response_format: zodResponseFormat(GenerateFollowupOutputSchema, "generate_followup_output"),
     });
 
     return toModelClientResult(completion);

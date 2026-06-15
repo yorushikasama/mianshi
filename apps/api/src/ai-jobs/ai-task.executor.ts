@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { z } from "zod";
 import {
   GenerateAnswerOutputSchema,
+  GenerateFollowupOutputSchema,
   GenerateQuestionsOutputSchema,
   ScoreAttemptOutputSchema,
   answerTypes,
@@ -11,6 +12,7 @@ import {
   type DifficultyLevel,
   type GenerateAnswerOutput,
   type GeneratedQuestion,
+  type GenerateFollowupOutput,
   type PracticeAttemptResult,
   type QuestionType,
   type ScheduledPracticeReview,
@@ -42,6 +44,11 @@ const ScoreAttemptInputSchema = z.object({
   submittedAnswer: z.string().trim().min(4).max(4000),
   selfRating: z.enum(fsrsRatingNames).optional(),
   now: z.coerce.date().optional(),
+});
+
+const GenerateFollowupInputSchema = z.object({
+  attemptId: z.string().trim().min(1),
+  count: z.coerce.number().int().min(1).max(8).default(3),
 });
 
 export interface PromptVersionRecord {
@@ -97,6 +104,24 @@ export interface ScoringContext {
   } | null;
 }
 
+export interface FollowupAttemptContext {
+  id: string;
+  questionId: string;
+  submittedAnswer: string;
+  score: number;
+  feedbackSummary: string;
+  matchedKeyPoints: string[];
+  missingKeyPoints: string[];
+  followUpQuestions: string[];
+  createdAt: string;
+}
+
+export interface FollowupContext {
+  attempt: FollowupAttemptContext;
+  question: QuestionContext;
+  answer: AnswerContext;
+}
+
 export interface AiGenerationRepository {
   upsertPromptVersion(input: Omit<PromptVersionRecord, "id">): Promise<PromptVersionRecord>;
   createGeneratedQuestions(input: {
@@ -120,6 +145,12 @@ export interface AiGenerationRepository {
     attempt: PracticeAttemptResult;
     reviewSchedule: ScheduledPracticeReview;
   }): Promise<PracticeAttemptResult>;
+  findFollowupContext(input: { userId: string; attemptId: string }): Promise<FollowupContext | null>;
+  updatePracticeAttemptFollowups(input: {
+    userId: string;
+    attemptId: string;
+    followUpQuestions: string[];
+  }): Promise<string[]>;
 }
 
 export interface AiModelClientResult {
@@ -144,6 +175,11 @@ export interface AiModelClient {
     answer: AnswerContext;
     promptVersion: PromptVersionRecord;
   }): Promise<AiModelClientResult>;
+  generateFollowup(input: {
+    input: z.infer<typeof GenerateFollowupInputSchema>;
+    context: FollowupContext;
+    promptVersion: PromptVersionRecord;
+  }): Promise<AiModelClientResult>;
 }
 
 @Injectable()
@@ -166,6 +202,10 @@ export class AiTaskExecutorService implements AiTaskExecutor {
 
     if (input.type === "score_attempt") {
       return this.scoreAttempt(input);
+    }
+
+    if (input.type === "generate_followup") {
+      return this.generateFollowup(input);
     }
 
     throw new Error(`AI task type is not supported yet: ${input.type}`);
@@ -294,6 +334,46 @@ export class AiTaskExecutorService implements AiTaskExecutor {
       tokenUsage: response.tokenUsage,
     };
   }
+
+  private async generateFollowup(input: AiTaskExecutionInput): Promise<AiTaskExecutionResult> {
+    const parsedInput = GenerateFollowupInputSchema.parse(input.input);
+    const context = await this.repository.findFollowupContext({
+      userId: input.userId,
+      attemptId: parsedInput.attemptId,
+    });
+
+    if (!context) {
+      throw new Error("Practice attempt not found");
+    }
+
+    const promptVersion = await this.repository.upsertPromptVersion({
+      name: `generate_followup:${context.question.domainSlug}`,
+      version: "v1",
+      template: generateFollowupPromptTemplate(),
+      outputSchema: GenerateFollowupOutputSchema.toJSONSchema() as Record<string, unknown>,
+    });
+    const response = await this.modelClient.generateFollowup({
+      input: parsedInput,
+      context,
+      promptVersion,
+    });
+    const output: GenerateFollowupOutput = GenerateFollowupOutputSchema.parse(response.output);
+    const followUpQuestions = await this.repository.updatePracticeAttemptFollowups({
+      userId: input.userId,
+      attemptId: parsedInput.attemptId,
+      followUpQuestions: output.followUpQuestions,
+    });
+
+    return {
+      output: {
+        attemptId: parsedInput.attemptId,
+        followUpQuestions,
+      },
+      model: response.model,
+      promptVersionId: promptVersion.id,
+      tokenUsage: response.tokenUsage,
+    };
+  }
 }
 
 function generateQuestionsPromptTemplate() {
@@ -317,5 +397,13 @@ function scoreAttemptPromptTemplate() {
     "你是一个技术面试复习系统的评分器。",
     "根据题目、参考答案要点和用户回答，输出 0-100 分、简短反馈、命中要点、缺失要点和可继续追问的问题。",
     "不要输出 FSRS rating 或复习时间，后端会根据分数和用户自评计算复习调度。",
+  ].join("\n");
+}
+
+function generateFollowupPromptTemplate() {
+  return [
+    "你是一个技术面试复习系统的追问生成器。",
+    "根据题目、参考答案、用户回答、评分反馈和缺失要点，生成能模拟真实技术面试的后续追问。",
+    "追问必须聚焦用户回答中的薄弱点、项目表达和排查思路，不要生成闲聊内容。",
   ].join("\n");
 }

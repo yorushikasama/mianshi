@@ -368,4 +368,108 @@ describe("PrismaAiGenerationRepository", () => {
     });
     expect(savedAttempt).toBe(attempt);
   });
+
+  it("loads follow-up context from a user-owned practice attempt", async () => {
+    const prisma = {
+      practiceAttempt: {
+        findFirst: vi.fn(async () => ({
+          id: "attempt_q_1_1780876800000",
+          userId: "user_1",
+          questionId: "q_1",
+          userAnswer: "GC Roots 是可达性分析的起点。",
+          aiScore: 86,
+          aiFeedback: "回答不错。",
+          matchedPoints: ["GC Roots"],
+          missingPoints: ["GC 日志"],
+          followupQuestions: ["如果 Full GC 频繁，你会先看什么？"],
+          createdAt: new Date("2026-06-08T00:00:00.000Z"),
+          question: {
+            id: "q_1",
+            userId: null,
+            domain: { slug: "java_backend" },
+            category: { slug: "jvm" },
+            type: "scenario",
+            difficulty: "medium",
+            title: "线上 Full GC 频繁时你如何排查？",
+            content: "请结合 JVM 指标、日志和业务流量说明你的排查路径。",
+            tags: [{ tag: { name: "JVM" } }],
+            answers: [
+              {
+                id: "answer_1",
+                answerType: "standard",
+                content: "参考答案",
+                keyPoints: ["GC Roots", "GC 日志"],
+              },
+            ],
+          },
+        })),
+      },
+    };
+    const repository = new PrismaAiGenerationRepository(prisma as never);
+
+    const context = await repository.findFollowupContext({
+      userId: "user_1",
+      attemptId: "attempt_q_1_1780876800000",
+    });
+
+    expect(prisma.practiceAttempt.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "attempt_q_1_1780876800000",
+        userId: "user_1",
+      },
+      include: expect.objectContaining({
+        question: expect.objectContaining({
+          include: expect.objectContaining({
+            answers: expect.objectContaining({ take: 1 }),
+          }),
+        }),
+      }),
+    });
+    expect(context).toEqual({
+      attempt: {
+        id: "attempt_q_1_1780876800000",
+        questionId: "q_1",
+        submittedAnswer: "GC Roots 是可达性分析的起点。",
+        score: 86,
+        feedbackSummary: "回答不错。",
+        matchedKeyPoints: ["GC Roots"],
+        missingKeyPoints: ["GC 日志"],
+        followUpQuestions: ["如果 Full GC 频繁，你会先看什么？"],
+        createdAt: "2026-06-08T00:00:00.000Z",
+      },
+      question: expect.objectContaining({ id: "q_1", domainSlug: "java_backend" }),
+      answer: {
+        id: "answer_1",
+        answerType: "standard",
+        content: "参考答案",
+        keyPoints: ["GC Roots", "GC 日志"],
+      },
+    });
+  });
+
+  it("updates follow-up questions only on attempts owned by the current user", async () => {
+    const prisma = {
+      practiceAttempt: {
+        updateMany: vi.fn(async () => ({ count: 1 })),
+      },
+    };
+    const repository = new PrismaAiGenerationRepository(prisma as never);
+
+    const followUpQuestions = await repository.updatePracticeAttemptFollowups({
+      userId: "user_1",
+      attemptId: "attempt_q_1_1780876800000",
+      followUpQuestions: ["如果 GC 日志显示 promotion failed，你会如何继续定位？"],
+    });
+
+    expect(prisma.practiceAttempt.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "attempt_q_1_1780876800000",
+        userId: "user_1",
+      },
+      data: {
+        followupQuestions: ["如果 GC 日志显示 promotion failed，你会如何继续定位？"],
+      },
+    });
+    expect(followUpQuestions).toEqual(["如果 GC 日志显示 promotion failed，你会如何继续定位？"]);
+  });
 });

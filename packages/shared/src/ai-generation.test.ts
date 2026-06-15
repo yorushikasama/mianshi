@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { GenerateAnswerOutputSchema, GenerateQuestionsOutputSchema, ScoreAttemptOutputSchema } from "./ai-generation";
+import {
+  GenerateAnswerOutputSchema,
+  GenerateFollowupOutputSchema,
+  GenerateQuestionsOutputSchema,
+  ScoreAttemptOutputSchema,
+} from "./ai-generation";
 
 describe("AI generation structured output schemas", () => {
   it("accepts structured generated interview questions without hard-coding Java in the schema", () => {
@@ -51,6 +56,25 @@ describe("AI generation structured output schemas", () => {
         feedbackSummary: "分数越界。",
         matchedKeyPoints: [],
         missingKeyPoints: [],
+        followUpQuestions: [],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts structured follow-up generation as a separate AI task output", () => {
+    const output = GenerateFollowupOutputSchema.parse({
+      followUpQuestions: [
+        "如果 GC 日志显示 promotion failed，你会如何判断是内存泄漏还是瞬时流量？",
+        "你会如何把这个排查过程讲成一次线上问题复盘？",
+      ],
+    });
+
+    expect(output.followUpQuestions).toHaveLength(2);
+  });
+
+  it("rejects follow-up generation without concrete questions", () => {
+    expect(() =>
+      GenerateFollowupOutputSchema.parse({
         followUpQuestions: [],
       }),
     ).toThrow();

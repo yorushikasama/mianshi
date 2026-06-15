@@ -4,6 +4,7 @@ import type { DifficultyLevel, QuestionType, SourceType } from "@mianshi/shared"
 import { PrismaService } from "../database/prisma.service";
 import type {
   AiGenerationRepository,
+  FollowupContext,
   PersistedDraftAnswer,
   PersistedGeneratedQuestion,
   PromptVersionRecord,
@@ -37,6 +38,26 @@ type QuestionWithScoringRelations = QuestionWithContextRelations & {
     difficulty: number | null;
     lastReviewedAt: Date | null;
   }[];
+};
+
+type PracticeAttemptWithFollowupRelations = {
+  id: string;
+  questionId: string;
+  userAnswer: string;
+  aiScore: number;
+  aiFeedback: string;
+  matchedPoints: unknown;
+  missingPoints: unknown;
+  followupQuestions: unknown;
+  createdAt: Date;
+  question: QuestionWithContextRelations & {
+    answers: {
+      id: string;
+      answerType: string;
+      content: string;
+      keyPoints: unknown;
+    }[];
+  };
 };
 
 @Injectable()
@@ -265,6 +286,84 @@ export class PrismaAiGenerationRepository implements AiGenerationRepository {
     });
 
     return input.attempt;
+  }
+
+  async findFollowupContext(input: { userId: string; attemptId: string }): Promise<FollowupContext | null> {
+    const attempt = await this.prisma.practiceAttempt.findFirst({
+      where: {
+        id: input.attemptId,
+        userId: input.userId,
+      },
+      include: {
+        question: {
+          include: {
+            ...questionContextRelations,
+            answers: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: {
+                id: true,
+                answerType: true,
+                content: true,
+                keyPoints: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return null;
+    }
+
+    const typedAttempt = attempt as PracticeAttemptWithFollowupRelations;
+    const answer = typedAttempt.question.answers[0];
+
+    if (!answer) {
+      return null;
+    }
+
+    return {
+      attempt: {
+        id: typedAttempt.id,
+        questionId: typedAttempt.questionId,
+        submittedAnswer: typedAttempt.userAnswer,
+        score: typedAttempt.aiScore,
+        feedbackSummary: typedAttempt.aiFeedback,
+        matchedKeyPoints: asStringArray(typedAttempt.matchedPoints),
+        missingKeyPoints: asStringArray(typedAttempt.missingPoints),
+        followUpQuestions: asStringArray(typedAttempt.followupQuestions),
+        createdAt: typedAttempt.createdAt.toISOString(),
+      },
+      question: toQuestionContext(typedAttempt.question),
+      answer: {
+        id: answer.id,
+        answerType: answer.answerType,
+        content: answer.content,
+        keyPoints: asStringArray(answer.keyPoints),
+      },
+    };
+  }
+
+  async updatePracticeAttemptFollowups(
+    input: Parameters<AiGenerationRepository["updatePracticeAttemptFollowups"]>[0],
+  ): Promise<string[]> {
+    const result = await this.prisma.practiceAttempt.updateMany({
+      where: {
+        id: input.attemptId,
+        userId: input.userId,
+      },
+      data: {
+        followupQuestions: toPrismaJson(input.followUpQuestions),
+      },
+    });
+
+    if (result.count === 0) {
+      throw new Error("Practice attempt not found");
+    }
+
+    return input.followUpQuestions;
   }
 }
 

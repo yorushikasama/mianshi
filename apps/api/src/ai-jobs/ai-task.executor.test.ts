@@ -200,6 +200,79 @@ describe("AiTaskExecutorService", () => {
     });
   });
 
+  it("generates follow-up questions from a user-owned scored attempt", async () => {
+    const repository = createRepository();
+    const modelClient = createModelClient({
+      followupOutput: {
+        followUpQuestions: [
+          "如果 GC 日志显示 promotion failed，你会如何继续定位？",
+          "你会如何向面试官说明这次排查的取舍？",
+        ],
+      },
+      tokenUsage: 144,
+    });
+    const executor = new AiTaskExecutorService(repository as never, modelClient as never);
+
+    const result = await executor.execute({
+      jobId: "job_6",
+      userId: "user_1",
+      type: "generate_followup",
+      input: {
+        attemptId: "attempt_q_1_1780876800000",
+        count: 2,
+      },
+    });
+
+    expect(repository.findFollowupContext).toHaveBeenCalledWith({
+      userId: "user_1",
+      attemptId: "attempt_q_1_1780876800000",
+    });
+    expect(repository.upsertPromptVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "generate_followup:java_backend",
+        version: "v1",
+        outputSchema: expect.objectContaining({ type: "object" }),
+      }),
+    );
+    expect(modelClient.generateFollowup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          attemptId: "attempt_q_1_1780876800000",
+          count: 2,
+        },
+        context: expect.objectContaining({
+          attempt: expect.objectContaining({
+            id: "attempt_q_1_1780876800000",
+            missingKeyPoints: ["GC 日志"],
+          }),
+          question: expect.objectContaining({ id: "q_1" }),
+          answer: expect.objectContaining({ id: "answer_seed_1" }),
+        }),
+        promptVersion: expect.objectContaining({ id: "prompt_1" }),
+      }),
+    );
+    expect(repository.updatePracticeAttemptFollowups).toHaveBeenCalledWith({
+      userId: "user_1",
+      attemptId: "attempt_q_1_1780876800000",
+      followUpQuestions: [
+        "如果 GC 日志显示 promotion failed，你会如何继续定位？",
+        "你会如何向面试官说明这次排查的取舍？",
+      ],
+    });
+    expect(result).toEqual({
+      output: {
+        attemptId: "attempt_q_1_1780876800000",
+        followUpQuestions: [
+          "如果 GC 日志显示 promotion failed，你会如何继续定位？",
+          "你会如何向面试官说明这次排查的取舍？",
+        ],
+      },
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 144,
+    });
+  });
+
   it("rejects invalid structured answer output before writing it to storage", async () => {
     const repository = createRepository();
     const modelClient = createModelClient({
@@ -251,6 +324,29 @@ describe("AiTaskExecutorService", () => {
     ).rejects.toThrow();
 
     expect(repository.createScoredPracticeAttempt).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid structured follow-up output before updating the attempt", async () => {
+    const repository = createRepository();
+    const modelClient = createModelClient({
+      followupOutput: {
+        followUpQuestions: [],
+      },
+    });
+    const executor = new AiTaskExecutorService(repository as never, modelClient as never);
+
+    await expect(
+      executor.execute({
+        jobId: "job_7",
+        userId: "user_1",
+        type: "generate_followup",
+        input: {
+          attemptId: "attempt_q_1_1780876800000",
+        },
+      }),
+    ).rejects.toThrow();
+
+    expect(repository.updatePracticeAttemptFollowups).not.toHaveBeenCalled();
   });
 });
 
@@ -312,6 +408,37 @@ function createRepository() {
       reviewState: null,
     })),
     createScoredPracticeAttempt: vi.fn(async (input) => input.attempt),
+    findFollowupContext: vi.fn(async () => ({
+      attempt: {
+        id: "attempt_q_1_1780876800000",
+        questionId: "q_1",
+        submittedAnswer: "GC Roots 是可达性分析的起点。",
+        score: 86,
+        feedbackSummary: "回答不错。",
+        matchedKeyPoints: ["GC Roots"],
+        missingKeyPoints: ["GC 日志"],
+        followUpQuestions: ["如果 Full GC 频繁，你会先看什么？"],
+        createdAt: "2026-06-08T00:00:00.000Z",
+      },
+      question: {
+        id: "q_1",
+        userId: null,
+        domainSlug: "java_backend",
+        categorySlug: "jvm",
+        type: "scenario",
+        difficulty: "medium",
+        title: "线上 Full GC 频繁时你如何排查？",
+        content: "请结合 JVM 指标、日志和业务流量说明你的排查路径。",
+        tags: ["JVM", "GC"],
+      },
+      answer: {
+        id: "answer_seed_1",
+        answerType: "standard",
+        content: "GC Roots 是可达性分析的起点，排查时要结合 GC 日志和对象分配热点。",
+        keyPoints: ["GC Roots", "可达性分析", "GC 日志"],
+      },
+    })),
+    updatePracticeAttemptFollowups: vi.fn(async (input) => input.followUpQuestions),
   };
 }
 
@@ -319,6 +446,7 @@ function createModelClient(input: {
   questionsOutput?: unknown;
   answerOutput?: unknown;
   scoreOutput?: unknown;
+  followupOutput?: unknown;
   tokenUsage?: number;
 }) {
   return {
@@ -334,6 +462,11 @@ function createModelClient(input: {
     })),
     scoreAttempt: vi.fn(async () => ({
       output: input.scoreOutput,
+      model: "gpt-5.5",
+      tokenUsage: input.tokenUsage ?? 100,
+    })),
+    generateFollowup: vi.fn(async () => ({
+      output: input.followupOutput,
       model: "gpt-5.5",
       tokenUsage: input.tokenUsage ?? 100,
     })),

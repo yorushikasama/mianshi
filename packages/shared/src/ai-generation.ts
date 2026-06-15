@@ -29,7 +29,12 @@ export const ScoreAttemptOutputSchema = z.object({
   followUpQuestions: z.array(z.string().trim().min(1).max(500)).max(8),
 });
 
+export const GenerateFollowupOutputSchema = z.object({
+  followUpQuestions: z.array(z.string().trim().min(1).max(500)).min(1).max(8),
+});
+
 export type GeneratedQuestion = z.infer<typeof GeneratedQuestionSchema>;
 export type GenerateQuestionsOutput = z.infer<typeof GenerateQuestionsOutputSchema>;
 export type GenerateAnswerOutput = z.infer<typeof GenerateAnswerOutputSchema>;
 export type ScoreAttemptOutput = z.infer<typeof ScoreAttemptOutputSchema>;
+export type GenerateFollowupOutput = z.infer<typeof GenerateFollowupOutputSchema>;

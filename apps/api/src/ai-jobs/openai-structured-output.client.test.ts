@@ -197,4 +197,101 @@ describe("OpenAiStructuredOutputClient", () => {
       tokenUsage: 198,
     });
   });
+
+  it("generates follow-up questions with OpenAI structured output parsing", async () => {
+    const parse = vi.fn(async () => ({
+      model: "gpt-5.5",
+      usage: { total_tokens: 144 },
+      choices: [
+        {
+          message: {
+            parsed: {
+              followUpQuestions: [
+                "如果 GC 日志显示 promotion failed，你会如何继续定位？",
+                "你会如何向面试官说明这次排查的取舍？",
+              ],
+            },
+          },
+        },
+      ],
+    }));
+    const client = new OpenAiStructuredOutputClient(
+      { chat: { completions: { parse } } } as never,
+      { apiKey: "key", model: "gpt-5.5" },
+    );
+
+    const result = await client.generateFollowup({
+      input: {
+        attemptId: "attempt_q_1_1780876800000",
+        count: 2,
+      },
+      context: {
+        attempt: {
+          id: "attempt_q_1_1780876800000",
+          questionId: "q_1",
+          submittedAnswer: "GC Roots 是可达性分析的起点。",
+          score: 86,
+          feedbackSummary: "回答覆盖主要点，可以补充线上排查指标。",
+          matchedKeyPoints: ["GC Roots", "可达性分析"],
+          missingKeyPoints: ["GC 日志"],
+          followUpQuestions: [],
+          createdAt: "2026-06-08T00:00:00.000Z",
+        },
+        question: {
+          id: "q_1",
+          userId: null,
+          domainSlug: "java_backend",
+          categorySlug: "jvm",
+          type: "scenario",
+          difficulty: "medium",
+          title: "线上 Full GC 频繁时你如何排查？",
+          content: "请结合 JVM 指标、日志和业务流量说明你的排查路径。",
+          tags: ["JVM", "GC"],
+        },
+        answer: {
+          id: "answer_1",
+          answerType: "standard",
+          content: "参考答案",
+          keyPoints: ["GC Roots", "可达性分析", "GC 日志"],
+        },
+      },
+      promptVersion: {
+        ...promptVersion,
+        name: "generate_followup:java_backend",
+      },
+    });
+
+    expect(parse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-5.5",
+        response_format: expect.any(Object),
+        messages: [
+          { role: "system", content: "system prompt" },
+          {
+            role: "user",
+            content: expect.stringContaining("generate_followup"),
+          },
+        ],
+      }),
+    );
+    expect(parse.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining("attempt_q_1_1780876800000"),
+          }),
+        ]),
+      }),
+    );
+    expect(result).toEqual({
+      output: {
+        followUpQuestions: [
+          "如果 GC 日志显示 promotion failed，你会如何继续定位？",
+          "你会如何向面试官说明这次排查的取舍？",
+        ],
+      },
+      model: "gpt-5.5",
+      tokenUsage: 144,
+    });
+  });
 });
