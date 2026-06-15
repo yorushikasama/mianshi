@@ -95,4 +95,40 @@ describe("PrismaAiJobRepository", () => {
     expect(result.total).toBe(1);
     expect(result.items[0]?.id).toBe("job_1");
   });
+
+  it("marks jobs succeeded with structured output and AI trace metadata", async () => {
+    const prisma = {
+      aiJob: {
+        update: vi.fn(async () => undefined),
+      },
+    };
+    const repository = new PrismaAiJobRepository(prisma as never);
+
+    await repository.markSucceeded("job_1", {
+      output: {
+        questions: [{ id: "q_ai_1" }],
+      },
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 321,
+      latencyMs: 456,
+    });
+
+    expect(prisma.aiJob.update).toHaveBeenCalledWith({
+      where: { id: "job_1" },
+      data: {
+        status: "succeeded",
+        progress: 100,
+        output: {
+          questions: [{ id: "q_ai_1" }],
+        },
+        error: null,
+        model: "gpt-5.5",
+        promptVersionId: "prompt_1",
+        tokenUsage: 321,
+        latencyMs: 456,
+        completedAt: expect.any(Date),
+      },
+    });
+  });
 });

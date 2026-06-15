@@ -100,7 +100,16 @@ export class PrismaAiJobRepository implements AiJobRepository, AiJobStateReposit
     });
   }
 
-  async markSucceeded(jobId: string, input: { output: Record<string, unknown>; latencyMs: number }) {
+  async markSucceeded(
+    jobId: string,
+    input: {
+      output: Record<string, unknown>;
+      model: string;
+      promptVersionId: string;
+      tokenUsage: number;
+      latencyMs: number;
+    },
+  ) {
     await this.prisma.aiJob.update({
       where: { id: jobId },
       data: {
@@ -108,6 +117,9 @@ export class PrismaAiJobRepository implements AiJobRepository, AiJobStateReposit
         progress: 100,
         output: toPrismaJson(input.output),
         error: null,
+        model: input.model,
+        promptVersionId: input.promptVersionId,
+        tokenUsage: input.tokenUsage,
         latencyMs: input.latencyMs,
         completedAt: new Date(),
       },

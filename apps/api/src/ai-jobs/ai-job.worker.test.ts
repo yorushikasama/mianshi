@@ -2,31 +2,57 @@ import { describe, expect, it, vi } from "vitest";
 import { AiJobWorker } from "./ai-job.worker";
 
 describe("AiJobWorker", () => {
-  it("marks a dequeued job as failed when no executor is registered yet", async () => {
+  it("executes a dequeued job and records observable success metadata", async () => {
     const repository = {
       markRunning: vi.fn(async () => undefined),
       markSucceeded: vi.fn(async () => undefined),
       markFailed: vi.fn(async () => undefined),
     };
-    const worker = new AiJobWorker(repository as never);
-
-    await expect(
-      worker.process({
-        data: {
-          jobId: "job_1",
-          type: "generate_questions",
+    const executor = {
+      execute: vi.fn(async () => ({
+        output: {
+          questions: [{ id: "q_ai_1" }],
         },
-        attemptsMade: 0,
-      } as never),
-    ).rejects.toThrow("AI executor is not implemented yet for generate_questions");
+        model: "gpt-5.5",
+        promptVersionId: "prompt_1",
+        tokenUsage: 321,
+      })),
+    };
+    const worker = new AiJobWorker(repository as never, executor as never);
+
+    await worker.process({
+      data: {
+        jobId: "job_1",
+        userId: "user_1",
+        type: "generate_questions",
+        input: {
+          domainSlug: "java_backend",
+          count: 1,
+        },
+      },
+      attemptsMade: 0,
+    } as never);
 
     expect(repository.markRunning).toHaveBeenCalledWith("job_1");
-    expect(repository.markFailed).toHaveBeenCalledWith("job_1", {
-      error: "AI executor is not implemented yet for generate_questions",
-      retryCount: 0,
+    expect(executor.execute).toHaveBeenCalledWith({
+      jobId: "job_1",
+      userId: "user_1",
+      type: "generate_questions",
+      input: {
+        domainSlug: "java_backend",
+        count: 1,
+      },
+    });
+    expect(repository.markSucceeded).toHaveBeenCalledWith("job_1", {
+      output: {
+        questions: [{ id: "q_ai_1" }],
+      },
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 321,
       latencyMs: expect.any(Number),
     });
-    expect(repository.markSucceeded).not.toHaveBeenCalled();
+    expect(repository.markFailed).not.toHaveBeenCalled();
   });
 
   it("marks a job failed with retry count when processing throws", async () => {
@@ -37,13 +63,25 @@ describe("AiJobWorker", () => {
       markSucceeded: vi.fn(async () => undefined),
       markFailed: vi.fn(async () => undefined),
     };
-    const worker = new AiJobWorker(repository as never);
+    const executor = {
+      execute: vi.fn(async () => ({
+        output: {},
+        model: "gpt-5.5",
+        promptVersionId: "prompt_1",
+        tokenUsage: 0,
+      })),
+    };
+    const worker = new AiJobWorker(repository as never, executor as never);
 
     await expect(
       worker.process({
         data: {
           jobId: "job_1",
+          userId: "user_1",
           type: "generate_answer",
+          input: {
+            questionId: "q_1",
+          },
         },
         attemptsMade: 2,
       } as never),

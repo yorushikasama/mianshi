@@ -2,11 +2,13 @@ import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Worker, type Job } from "bullmq";
 import type { AiJobType } from "@mianshi/shared";
 import { AI_TASK_QUEUE_NAME, createRedisConnectionOptions } from "./bullmq-ai-task.queue";
-import { AI_JOB_STATE_REPOSITORY, type AiJobStateRepository } from "./ai-job.tokens";
+import { AI_JOB_STATE_REPOSITORY, AI_TASK_EXECUTOR, type AiJobStateRepository, type AiTaskExecutor } from "./ai-job.tokens";
 
 type AiTaskPayload = {
   jobId: string;
+  userId: string;
   type: AiJobType;
+  input: Record<string, unknown>;
 };
 
 @Injectable()
@@ -16,6 +18,8 @@ export class AiJobWorker implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(AI_JOB_STATE_REPOSITORY)
     private readonly repository: AiJobStateRepository,
+    @Inject(AI_TASK_EXECUTOR)
+    private readonly executor: AiTaskExecutor,
   ) {}
 
   onModuleInit() {
@@ -33,7 +37,11 @@ export class AiJobWorker implements OnModuleInit, OnModuleDestroy {
 
     try {
       await this.repository.markRunning(job.data.jobId);
-      throw new Error(`AI executor is not implemented yet for ${job.data.type}`);
+      const result = await this.executor.execute(job.data);
+      await this.repository.markSucceeded(job.data.jobId, {
+        ...result,
+        latencyMs: elapsedMs(startedAt),
+      });
     } catch (error) {
       await this.repository.markFailed(job.data.jobId, {
         error: toErrorMessage(error),
