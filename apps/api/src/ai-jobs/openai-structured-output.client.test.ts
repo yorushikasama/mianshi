@@ -16,10 +16,12 @@ describe("OpenAiStructuredOutputClient", () => {
       getOpenAiConfigFromEnv({
         OPENAI_API_KEY: " key ",
         OPENAI_MODEL: " gpt-5.5 ",
+        OPENAI_EMBEDDING_MODEL: " text-embedding-3-small ",
       }),
     ).toEqual({
       apiKey: "key",
       model: "gpt-5.5",
+      embeddingModel: "text-embedding-3-small",
     });
   });
 
@@ -292,6 +294,45 @@ describe("OpenAiStructuredOutputClient", () => {
       },
       model: "gpt-5.5",
       tokenUsage: 144,
+    });
+  });
+
+  it("embeds RAG document chunks with the configured embedding model", async () => {
+    const create = vi.fn(async () => ({
+      model: "text-embedding-3-small",
+      usage: { total_tokens: 42 },
+      data: [
+        { embedding: [0.1, 0.2, 0.3] },
+        { embedding: [0.4, 0.5, 0.6] },
+      ],
+    }));
+    const client = new OpenAiStructuredOutputClient(
+      {
+        chat: { completions: { parse: vi.fn() } },
+        embeddings: { create },
+      } as never,
+      {
+        apiKey: "key",
+        model: "gpt-5.5",
+        embeddingModel: "text-embedding-3-small",
+      },
+    );
+
+    const result = await client.embedTexts({
+      texts: ["chunk one", "chunk two"],
+    });
+
+    expect(create).toHaveBeenCalledWith({
+      model: "text-embedding-3-small",
+      input: ["chunk one", "chunk two"],
+    });
+    expect(result).toEqual({
+      embeddings: [
+        [0.1, 0.2, 0.3],
+        [0.4, 0.5, 0.6],
+      ],
+      model: "text-embedding-3-small",
+      tokenUsage: 42,
     });
   });
 });

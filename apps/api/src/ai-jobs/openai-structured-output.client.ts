@@ -18,11 +18,13 @@ import type {
 type RuntimeEnv = {
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
+  OPENAI_EMBEDDING_MODEL?: string;
 };
 
 export type OpenAiConfig = {
   apiKey: string;
   model: string;
+  embeddingModel: string;
 };
 
 type OpenAiParsedCompletion = {
@@ -43,6 +45,17 @@ type OpenAiParseClient = {
     completions: {
       parse(input: unknown): Promise<OpenAiParsedCompletion>;
     };
+  };
+  embeddings: {
+    create(input: unknown): Promise<{
+      model?: string;
+      usage?: {
+        total_tokens?: number | null;
+      } | null;
+      data?: Array<{
+        embedding?: number[];
+      }>;
+    }>;
   };
 };
 
@@ -196,11 +209,25 @@ export class OpenAiStructuredOutputClient implements AiModelClient {
 
     return toModelClientResult(completion);
   }
+
+  async embedTexts(input: { texts: string[] }) {
+    const response = await this.client.embeddings.create({
+      model: this.config.embeddingModel,
+      input: input.texts,
+    });
+
+    return {
+      embeddings: (response.data ?? []).map((item) => item.embedding ?? []),
+      model: response.model ?? this.config.embeddingModel,
+      tokenUsage: response.usage?.total_tokens ?? 0,
+    };
+  }
 }
 
 export function getOpenAiConfigFromEnv(env: RuntimeEnv = process.env): OpenAiConfig {
   const apiKey = env.OPENAI_API_KEY?.trim();
   const model = env.OPENAI_MODEL?.trim();
+  const embeddingModel = env.OPENAI_EMBEDDING_MODEL?.trim() || "text-embedding-3-small";
 
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is required to run AI generation tasks.");
@@ -210,7 +237,7 @@ export function getOpenAiConfigFromEnv(env: RuntimeEnv = process.env): OpenAiCon
     throw new Error("OPENAI_MODEL is required to run AI generation tasks.");
   }
 
-  return { apiKey, model };
+  return { apiKey, model, embeddingModel };
 }
 
 function createOpenAiClient(config = getOpenAiConfigFromEnv()): OpenAiParseClient {

@@ -1,15 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
-import type { DifficultyLevel, QuestionType, SourceType } from "@mianshi/shared";
+import type { DifficultyLevel, DocumentType, QuestionType, RagChunkMetadata, SourceType } from "@mianshi/shared";
 import { PrismaService } from "../database/prisma.service";
 import type {
   AiGenerationRepository,
   FollowupContext,
   PersistedDraftAnswer,
+  PersistedDocumentChunk,
   PersistedGeneratedQuestion,
   PromptVersionRecord,
   QuestionContext,
   ScoringContext,
+  SourceDocumentForEmbedding,
 } from "./ai-task.executor";
 
 type QuestionWithContextRelations = {
@@ -365,6 +367,73 @@ export class PrismaAiGenerationRepository implements AiGenerationRepository {
 
     return input.followUpQuestions;
   }
+
+  async findSourceDocumentForEmbedding(input: {
+    userId: string;
+    documentId: string;
+  }): Promise<SourceDocumentForEmbedding | null> {
+    const document = await this.prisma.sourceDocument.findFirst({
+      where: {
+        id: input.documentId,
+        userId: input.userId,
+      },
+      select: {
+        id: true,
+        userId: true,
+        documentType: true,
+        title: true,
+        content: true,
+      },
+    });
+
+    return document
+      ? {
+          id: document.id,
+          userId: document.userId,
+          documentType: document.documentType as DocumentType,
+          title: document.title,
+          content: document.content,
+        }
+      : null;
+  }
+
+  async replaceDocumentChunks(input: Parameters<AiGenerationRepository["replaceDocumentChunks"]>[0]) {
+    return this.prisma.$transaction(async (tx) => {
+      const document = await tx.sourceDocument.findFirst({
+        where: {
+          id: input.documentId,
+          userId: input.userId,
+        },
+        select: { id: true },
+      });
+
+      if (!document) {
+        throw new Error("Source document not found");
+      }
+
+      await tx.documentChunk.deleteMany({
+        where: { documentId: input.documentId },
+      });
+
+      const chunks: PersistedDocumentChunk[] = [];
+
+      for (const chunk of input.chunks) {
+        const savedChunk = await tx.documentChunk.create({
+          data: {
+            documentId: input.documentId,
+            chunkIndex: chunk.chunkIndex,
+            content: chunk.content,
+            metadata: toPrismaJson(chunk.metadata),
+            embedding: toPrismaJson(chunk.embedding),
+          },
+        });
+
+        chunks.push(toPersistedDocumentChunk(savedChunk));
+      }
+
+      return chunks;
+    });
+  }
 }
 
 const questionContextRelations = {
@@ -425,6 +494,45 @@ function asStringArray(input: unknown): string[] {
   }
 
   return [];
+}
+
+function asNumberArray(input: unknown): number[] {
+  if (Array.isArray(input) && input.every((item) => typeof item === "number")) {
+    return input;
+  }
+
+  return [];
+}
+
+function asRagChunkMetadata(input: unknown): RagChunkMetadata {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return input as RagChunkMetadata;
+  }
+
+  return {
+    documentId: "",
+    chunkIndex: 0,
+    startChar: 0,
+    endChar: 0,
+  };
+}
+
+function toPersistedDocumentChunk(chunk: {
+  id: string;
+  documentId: string;
+  chunkIndex: number;
+  content: string;
+  metadata: unknown;
+  embedding: unknown;
+}): PersistedDocumentChunk {
+  return {
+    id: chunk.id,
+    documentId: chunk.documentId,
+    chunkIndex: chunk.chunkIndex,
+    content: chunk.content,
+    metadata: asRagChunkMetadata(chunk.metadata),
+    embedding: asNumberArray(chunk.embedding),
+  };
 }
 
 function toPrismaJson(input: unknown): Prisma.InputJsonValue {

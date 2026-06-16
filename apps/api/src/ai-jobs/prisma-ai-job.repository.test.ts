@@ -131,4 +131,44 @@ describe("PrismaAiJobRepository", () => {
       },
     });
   });
+
+  it("marks embedding jobs succeeded without requiring prompt version metadata", async () => {
+    const prisma = {
+      aiJob: {
+        update: vi.fn(async () => undefined),
+      },
+    };
+    const repository = new PrismaAiJobRepository(prisma as never);
+
+    await repository.markSucceeded(
+      "job_embed_1",
+      {
+        output: {
+          documentId: "doc_1",
+          chunkCount: 4,
+        },
+        model: "text-embedding-3-small",
+        tokenUsage: 88,
+        latencyMs: 123,
+      } as never,
+    );
+
+    expect(prisma.aiJob.update).toHaveBeenCalledWith({
+      where: { id: "job_embed_1" },
+      data: {
+        status: "succeeded",
+        progress: 100,
+        output: {
+          documentId: "doc_1",
+          chunkCount: 4,
+        },
+        error: null,
+        model: "text-embedding-3-small",
+        promptVersionId: null,
+        tokenUsage: 88,
+        latencyMs: 123,
+        completedAt: expect.any(Date),
+      },
+    });
+  });
 });

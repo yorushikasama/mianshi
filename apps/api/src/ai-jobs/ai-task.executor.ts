@@ -7,14 +7,17 @@ import {
   ScoreAttemptOutputSchema,
   answerTypes,
   buildPracticeAttemptFromAiScore,
+  chunkTextForRag,
   fsrsRatingNames,
   scheduleNextPracticeReview,
+  type DocumentType,
   type DifficultyLevel,
   type GenerateAnswerOutput,
   type GeneratedQuestion,
   type GenerateFollowupOutput,
   type PracticeAttemptResult,
   type QuestionType,
+  type RagChunkMetadata,
   type ScheduledPracticeReview,
   type ScoreAttemptOutput,
 } from "@mianshi/shared";
@@ -49,6 +52,12 @@ const ScoreAttemptInputSchema = z.object({
 const GenerateFollowupInputSchema = z.object({
   attemptId: z.string().trim().min(1),
   count: z.coerce.number().int().min(1).max(8).default(3),
+});
+
+const EmbedDocumentInputSchema = z.object({
+  documentId: z.string().trim().min(1),
+  maxChunkChars: z.coerce.number().int().min(1).max(4_000).default(1_200),
+  overlapChars: z.coerce.number().int().min(0).max(800).default(160),
 });
 
 export interface PromptVersionRecord {
@@ -122,6 +131,23 @@ export interface FollowupContext {
   answer: AnswerContext;
 }
 
+export interface SourceDocumentForEmbedding {
+  id: string;
+  userId: string;
+  documentType: DocumentType;
+  title: string;
+  content: string;
+}
+
+export interface PersistedDocumentChunk {
+  id: string;
+  documentId: string;
+  chunkIndex: number;
+  content: string;
+  metadata: RagChunkMetadata;
+  embedding: number[];
+}
+
 export interface AiGenerationRepository {
   upsertPromptVersion(input: Omit<PromptVersionRecord, "id">): Promise<PromptVersionRecord>;
   createGeneratedQuestions(input: {
@@ -151,10 +177,27 @@ export interface AiGenerationRepository {
     attemptId: string;
     followUpQuestions: string[];
   }): Promise<string[]>;
+  findSourceDocumentForEmbedding(input: { userId: string; documentId: string }): Promise<SourceDocumentForEmbedding | null>;
+  replaceDocumentChunks(input: {
+    userId: string;
+    documentId: string;
+    chunks: Array<{
+      chunkIndex: number;
+      content: string;
+      metadata: RagChunkMetadata;
+      embedding: number[];
+    }>;
+  }): Promise<PersistedDocumentChunk[]>;
 }
 
 export interface AiModelClientResult {
   output: unknown;
+  model: string;
+  tokenUsage: number;
+}
+
+export interface AiEmbeddingClientResult {
+  embeddings: number[][];
   model: string;
   tokenUsage: number;
 }
@@ -180,6 +223,7 @@ export interface AiModelClient {
     context: FollowupContext;
     promptVersion: PromptVersionRecord;
   }): Promise<AiModelClientResult>;
+  embedTexts(input: { texts: string[] }): Promise<AiEmbeddingClientResult>;
 }
 
 @Injectable()
@@ -206,6 +250,10 @@ export class AiTaskExecutorService implements AiTaskExecutor {
 
     if (input.type === "generate_followup") {
       return this.generateFollowup(input);
+    }
+
+    if (input.type === "embed_document") {
+      return this.embedDocument(input);
     }
 
     throw new Error(`AI task type is not supported yet: ${input.type}`);
@@ -371,6 +419,53 @@ export class AiTaskExecutorService implements AiTaskExecutor {
       },
       model: response.model,
       promptVersionId: promptVersion.id,
+      tokenUsage: response.tokenUsage,
+    };
+  }
+
+  private async embedDocument(input: AiTaskExecutionInput): Promise<AiTaskExecutionResult> {
+    const parsedInput = EmbedDocumentInputSchema.parse(input.input);
+    const document = await this.repository.findSourceDocumentForEmbedding({
+      userId: input.userId,
+      documentId: parsedInput.documentId,
+    });
+
+    if (!document) {
+      throw new Error("Source document not found");
+    }
+
+    const textChunks = chunkTextForRag({
+      documentId: document.id,
+      content: document.content,
+      maxChunkChars: parsedInput.maxChunkChars,
+      overlapChars: parsedInput.overlapChars,
+    });
+
+    const response = await this.modelClient.embedTexts({
+      texts: textChunks.map((chunk) => chunk.content),
+    });
+
+    if (response.embeddings.length !== textChunks.length) {
+      throw new Error("Embedding count does not match document chunk count");
+    }
+
+    const chunks = await this.repository.replaceDocumentChunks({
+      userId: input.userId,
+      documentId: document.id,
+      chunks: textChunks.map((chunk, index) => ({
+        chunkIndex: chunk.chunkIndex,
+        content: chunk.content,
+        metadata: chunk.metadata,
+        embedding: response.embeddings[index] ?? [],
+      })),
+    });
+
+    return {
+      output: {
+        documentId: document.id,
+        chunkCount: chunks.length,
+      },
+      model: response.model,
       tokenUsage: response.tokenUsage,
     };
   }

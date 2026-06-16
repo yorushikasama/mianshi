@@ -262,7 +262,7 @@ Redis + BullMQ 负责以下任务：
 - generate_followup
 - embed_document
 - embed_question
-- rag_generate
+- rag_generate_questions
 
 状态：
 
@@ -489,11 +489,13 @@ GET    /practice/attempts
 GET    /review/today
 
 POST   /documents
-POST   /documents/:id/index
+GET    /documents
 POST   /rag/generate-questions
 
-GET    /ai-jobs/:id
-POST   /ai-jobs/:id/cancel
+POST   /ai/jobs
+GET    /ai/jobs
+GET    /ai/jobs/:id
+POST   /ai/jobs/:id/cancel
 ```
 
 ### 8.3 错误格式

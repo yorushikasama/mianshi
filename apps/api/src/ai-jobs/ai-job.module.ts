@@ -52,5 +52,6 @@ import { PrismaAiJobRepository } from "./prisma-ai-job.repository";
       useFactory: () => new OpenAiStructuredOutputClient(),
     },
   ],
+  exports: [AiJobService],
 })
 export class AiJobModule {}

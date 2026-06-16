@@ -472,4 +472,170 @@ describe("PrismaAiGenerationRepository", () => {
     });
     expect(followUpQuestions).toEqual(["如果 GC 日志显示 promotion failed，你会如何继续定位？"]);
   });
+
+  it("loads a source document for embedding only when it belongs to the current user", async () => {
+    const prisma = {
+      sourceDocument: {
+        findFirst: vi.fn(async () => ({
+          id: "doc_1",
+          userId: "user_1",
+          documentType: "resume",
+          title: "Java 后端简历",
+          content: "负责订单系统和 Redis 缓存优化。",
+        })),
+      },
+    };
+    const repository = new PrismaAiGenerationRepository(prisma as never);
+
+    const document = await repository.findSourceDocumentForEmbedding({
+      userId: "user_1",
+      documentId: "doc_1",
+    });
+
+    expect(prisma.sourceDocument.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "doc_1",
+        userId: "user_1",
+      },
+      select: {
+        id: true,
+        userId: true,
+        documentType: true,
+        title: true,
+        content: true,
+      },
+    });
+    expect(document).toEqual({
+      id: "doc_1",
+      userId: "user_1",
+      documentType: "resume",
+      title: "Java 后端简历",
+      content: "负责订单系统和 Redis 缓存优化。",
+    });
+  });
+
+  it("replaces document chunks only after verifying source document ownership", async () => {
+    const tx = {
+      sourceDocument: {
+        findFirst: vi.fn(async () => ({ id: "doc_1" })),
+      },
+      documentChunk: {
+        deleteMany: vi.fn(async () => ({ count: 2 })),
+        create: vi
+          .fn()
+          .mockResolvedValueOnce({
+            id: "chunk_1",
+            documentId: "doc_1",
+            chunkIndex: 0,
+            content: "负责订单系统",
+            metadata: {
+              documentId: "doc_1",
+              chunkIndex: 0,
+              startChar: 0,
+              endChar: 6,
+            },
+            embedding: [0.1, 0.2],
+          })
+          .mockResolvedValueOnce({
+            id: "chunk_2",
+            documentId: "doc_1",
+            chunkIndex: 1,
+            content: "Redis 缓存优化",
+            metadata: {
+              documentId: "doc_1",
+              chunkIndex: 1,
+              startChar: 4,
+              endChar: 14,
+            },
+            embedding: [0.3, 0.4],
+          }),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback) => callback(tx)),
+    };
+    const repository = new PrismaAiGenerationRepository(prisma as never);
+
+    const chunks = await repository.replaceDocumentChunks({
+      userId: "user_1",
+      documentId: "doc_1",
+      chunks: [
+        {
+          chunkIndex: 0,
+          content: "负责订单系统",
+          metadata: {
+            documentId: "doc_1",
+            chunkIndex: 0,
+            startChar: 0,
+            endChar: 6,
+          },
+          embedding: [0.1, 0.2],
+        },
+        {
+          chunkIndex: 1,
+          content: "Redis 缓存优化",
+          metadata: {
+            documentId: "doc_1",
+            chunkIndex: 1,
+            startChar: 4,
+            endChar: 14,
+          },
+          embedding: [0.3, 0.4],
+        },
+      ],
+    });
+
+    expect(tx.sourceDocument.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "doc_1",
+        userId: "user_1",
+      },
+      select: { id: true },
+    });
+    expect(tx.documentChunk.deleteMany).toHaveBeenCalledWith({
+      where: { documentId: "doc_1" },
+    });
+    expect(tx.documentChunk.create).toHaveBeenCalledWith({
+      data: {
+        documentId: "doc_1",
+        chunkIndex: 0,
+        content: "负责订单系统",
+        metadata: {
+          documentId: "doc_1",
+          chunkIndex: 0,
+          startChar: 0,
+          endChar: 6,
+        },
+        embedding: [0.1, 0.2],
+      },
+    });
+    expect(chunks).toEqual([
+      {
+        id: "chunk_1",
+        documentId: "doc_1",
+        chunkIndex: 0,
+        content: "负责订单系统",
+        metadata: {
+          documentId: "doc_1",
+          chunkIndex: 0,
+          startChar: 0,
+          endChar: 6,
+        },
+        embedding: [0.1, 0.2],
+      },
+      {
+        id: "chunk_2",
+        documentId: "doc_1",
+        chunkIndex: 1,
+        content: "Redis 缓存优化",
+        metadata: {
+          documentId: "doc_1",
+          chunkIndex: 1,
+          startChar: 4,
+          endChar: 14,
+        },
+        embedding: [0.3, 0.4],
+      },
+    ]);
+  });
 });

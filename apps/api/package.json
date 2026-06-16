@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "start:dev": "tsx watch src/main.ts",
+    "prebuild": "npm run build -w @mianshi/shared",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
+    "pretest": "npm run build -w @mianshi/shared",
     "test": "vitest run --pool=threads --maxWorkers=1 --no-fileParallelism"
   },
   "dependencies": {

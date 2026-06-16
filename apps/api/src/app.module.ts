@@ -7,6 +7,9 @@ import { PrismaAuthUserRepository } from "./auth/prisma-auth-user.repository";
 import { CatalogController } from "./catalog/catalog.controller";
 import { CatalogService } from "./catalog/catalog.service";
 import { DatabaseModule } from "./database/database.module";
+import { DocumentController } from "./documents/document.controller";
+import { DOCUMENT_REPOSITORY, DocumentService } from "./documents/document.service";
+import { PrismaDocumentRepository } from "./documents/prisma-document.repository";
 import { HealthController } from "./health/health.controller";
 import { PracticeController } from "./practice/practice.controller";
 import { PrismaPracticeAttemptRepository } from "./practice/prisma-practice-attempt.repository";
@@ -20,7 +23,15 @@ import { REVIEW_REPOSITORY, ReviewService } from "./review/review.service";
 
 @Module({
   imports: [DatabaseModule, AiJobModule],
-  controllers: [HealthController, AuthController, CatalogController, QuestionController, PracticeController, ReviewController],
+  controllers: [
+    HealthController,
+    AuthController,
+    CatalogController,
+    QuestionController,
+    PracticeController,
+    ReviewController,
+    DocumentController,
+  ],
   providers: [
     CatalogService,
     PrismaAuthUserRepository,
@@ -47,6 +58,12 @@ import { REVIEW_REPOSITORY, ReviewService } from "./review/review.service";
     {
       provide: REVIEW_REPOSITORY,
       useExisting: PrismaReviewRepository,
+    },
+    PrismaDocumentRepository,
+    DocumentService,
+    {
+      provide: DOCUMENT_REPOSITORY,
+      useExisting: PrismaDocumentRepository,
     },
   ],
 })

@@ -273,6 +273,73 @@ describe("AiTaskExecutorService", () => {
     });
   });
 
+  it("embeds a source document by chunking text and replacing user-isolated chunks", async () => {
+    const repository = createRepository();
+    const modelClient = createModelClient({
+      embeddings: [
+        [0.1, 0.2, 0.3],
+        [0.4, 0.5, 0.6],
+        [0.7, 0.8, 0.9],
+        [1, 1.1, 1.2],
+      ],
+      tokenUsage: 88,
+    });
+    const executor = new AiTaskExecutorService(repository as never, modelClient as never);
+
+    const result = await executor.execute({
+      jobId: "job_8",
+      userId: "user_1",
+      type: "embed_document",
+      input: {
+        documentId: "doc_1",
+        maxChunkChars: 12,
+        overlapChars: 4,
+      },
+    });
+
+    expect(repository.findSourceDocumentForEmbedding).toHaveBeenCalledWith({
+      userId: "user_1",
+      documentId: "doc_1",
+    });
+    expect(modelClient.embedTexts).toHaveBeenCalledWith({
+      texts: ["0123456789ab", "89abcdefghij", "ghijklmnopqr", "opqrstuvwxyz"],
+    });
+    expect(repository.replaceDocumentChunks).toHaveBeenCalledWith({
+      userId: "user_1",
+      documentId: "doc_1",
+      chunks: [
+        expect.objectContaining({
+          chunkIndex: 0,
+          content: "0123456789ab",
+          embedding: [0.1, 0.2, 0.3],
+        }),
+        expect.objectContaining({
+          chunkIndex: 1,
+          content: "89abcdefghij",
+          embedding: [0.4, 0.5, 0.6],
+        }),
+        expect.objectContaining({
+          chunkIndex: 2,
+          content: "ghijklmnopqr",
+          embedding: [0.7, 0.8, 0.9],
+        }),
+        expect.objectContaining({
+          chunkIndex: 3,
+          content: "opqrstuvwxyz",
+          embedding: [1, 1.1, 1.2],
+        }),
+      ],
+    });
+    expect(result).toEqual({
+      output: {
+        documentId: "doc_1",
+        chunkCount: 4,
+      },
+      model: "text-embedding-3-small",
+      tokenUsage: 88,
+    });
+  });
+
   it("rejects invalid structured answer output before writing it to storage", async () => {
     const repository = createRepository();
     const modelClient = createModelClient({
@@ -439,6 +506,20 @@ function createRepository() {
       },
     })),
     updatePracticeAttemptFollowups: vi.fn(async (input) => input.followUpQuestions),
+    findSourceDocumentForEmbedding: vi.fn(async () => ({
+      id: "doc_1",
+      userId: "user_1",
+      documentType: "resume",
+      title: "Java 后端简历",
+      content: "0123456789abcdefghijklmnopqrstuvwxyz",
+    })),
+    replaceDocumentChunks: vi.fn(async (input) =>
+      input.chunks.map((chunk: Record<string, unknown>, index: number) => ({
+        id: `chunk_${index + 1}`,
+        documentId: input.documentId,
+        ...chunk,
+      })),
+    ),
   };
 }
 
@@ -447,6 +528,7 @@ function createModelClient(input: {
   answerOutput?: unknown;
   scoreOutput?: unknown;
   followupOutput?: unknown;
+  embeddings?: number[][];
   tokenUsage?: number;
 }) {
   return {
@@ -468,6 +550,11 @@ function createModelClient(input: {
     generateFollowup: vi.fn(async () => ({
       output: input.followupOutput,
       model: "gpt-5.5",
+      tokenUsage: input.tokenUsage ?? 100,
+    })),
+    embedTexts: vi.fn(async () => ({
+      embeddings: input.embeddings ?? [],
+      model: "text-embedding-3-small",
       tokenUsage: input.tokenUsage ?? 100,
     })),
   };

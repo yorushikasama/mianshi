@@ -105,7 +105,7 @@ export class PrismaAiJobRepository implements AiJobRepository, AiJobStateReposit
     input: {
       output: Record<string, unknown>;
       model: string;
-      promptVersionId: string;
+      promptVersionId?: string | null;
       tokenUsage: number;
       latencyMs: number;
     },
@@ -118,7 +118,7 @@ export class PrismaAiJobRepository implements AiJobRepository, AiJobStateReposit
         output: toPrismaJson(input.output),
         error: null,
         model: input.model,
-        promptVersionId: input.promptVersionId,
+        promptVersionId: input.promptVersionId ?? null,
         tokenUsage: input.tokenUsage,
         latencyMs: input.latencyMs,
         completedAt: new Date(),

@@ -17,7 +17,7 @@ export interface AiTaskExecutionInput {
 export interface AiTaskExecutionResult {
   output: Record<string, unknown>;
   model: string;
-  promptVersionId: string;
+  promptVersionId?: string | null;
   tokenUsage: number;
 }
 
@@ -32,7 +32,7 @@ export interface AiJobStateRepository {
     input: {
       output: Record<string, unknown>;
       model: string;
-      promptVersionId: string;
+      promptVersionId?: string | null;
       tokenUsage: number;
       latencyMs: number;
     },
