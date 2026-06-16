@@ -4,6 +4,10 @@ import type {
   AiJobListResult,
   AiJobStatus,
   CreateAiJobInput,
+  CreateSourceDocumentInput,
+  SourceDocument,
+  SourceDocumentListQuery,
+  SourceDocumentListResult,
   PracticeAttemptInput,
   PracticeAttemptResult,
   PracticeReviewState,
@@ -180,6 +184,31 @@ export async function fetchAiJobs(input?: { status?: AiJobStatus; page?: number;
 
 export async function createAiJob(input: CreateAiJobInput) {
   return request<AiJob>("/ai/jobs", {
+    method: "POST",
+    body: JSON.stringify(input),
+    auth: true,
+  });
+}
+
+export function buildSourceDocumentsPath(input?: SourceDocumentListQuery) {
+  const searchParams = new URLSearchParams();
+
+  if (input?.documentType) {
+    searchParams.set("documentType", input.documentType);
+  }
+
+  const query = searchParams.toString();
+  return query ? `/documents?${query}` : "/documents";
+}
+
+export async function fetchSourceDocuments(input?: SourceDocumentListQuery) {
+  return request<SourceDocumentListResult>(buildSourceDocumentsPath(input), {
+    auth: true,
+  });
+}
+
+export async function createSourceDocument(input: CreateSourceDocumentInput) {
+  return request<{ document: SourceDocument; job: AiJob }>("/documents", {
     method: "POST",
     body: JSON.stringify(input),
     auth: true,

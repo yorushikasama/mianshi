@@ -1,5 +1,4 @@
 import {
-  BookOpen,
   Brain,
   ChevronRight,
   ClipboardCheck,
@@ -45,6 +44,7 @@ export default function HomePage() {
           <a href="#plan">复习计划</a>
           <a href="#pipeline">AI 流程</a>
           <a href="#catalog">Java 知识树</a>
+          <a href="/documents">资料库</a>
           <a href="/auth">登录</a>
           <a href="/practice/q_project_latency_optimization">开始练习</a>
         </nav>
@@ -62,8 +62,8 @@ export default function HomePage() {
               <Sparkles size={18} />
               生成今日练习
             </a>
-            <a className="secondary-action" href="#pipeline">
-              查看 AI 流程
+            <a className="secondary-action" href="/documents">
+              接入简历/JD
               <ChevronRight size={17} />
             </a>
           </div>
@@ -156,9 +156,9 @@ export default function HomePage() {
           <h2>上传简历或 JD 后，系统将生成个性化追问链</h2>
           <p>第一版先服务 Java 后端候选人，后续通过通用领域模型扩展到更多技术面试方向。</p>
         </div>
-        <a className="practice-strip-action" href="/practice/q_jvm_gc_roots">
-          <BookOpen size={18} />
-          准备上传入口
+        <a className="practice-strip-action" href="/documents">
+          <UploadCloud size={18} />
+          上传资料
         </a>
       </section>
     </main>

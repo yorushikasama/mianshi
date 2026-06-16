@@ -5,9 +5,12 @@ import {
   buildApiUrl,
   buildPracticeAttemptsPath,
   buildReviewOverviewPath,
+  buildSourceDocumentsPath,
   clearAccessToken,
   createAiJob,
+  createSourceDocument,
   fetchAiJobs,
+  fetchSourceDocuments,
   fetchReviewOverview,
   fetchPracticeAttempts,
   getAccessToken,
@@ -49,6 +52,12 @@ describe("web API client helpers", () => {
   it("builds AI job list paths with optional status and pagination", () => {
     expect(buildAiJobsPath({ status: "pending", page: 2, pageSize: 10 })).toBe(
       "/ai/jobs?status=pending&page=2&pageSize=10",
+    );
+  });
+
+  it("builds source document list paths with optional type filters", () => {
+    expect(buildSourceDocumentsPath({ documentType: "job_description" })).toBe(
+      "/documents?documentType=job_description",
     );
   });
 
@@ -160,6 +169,99 @@ describe("web API client helpers", () => {
         body: JSON.stringify({
           type: "generate_questions",
           input: { domainSlug: "java_backend" },
+        }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("fetches protected source documents with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        items: [
+          {
+            id: "doc_1",
+            userId: "user_1",
+            documentType: "resume",
+            title: "Java 后端简历",
+            contentPreview: "负责订单链路性能优化",
+            fileUrl: null,
+            chunkCount: 3,
+            createdAt: "2026-06-12T00:00:00.000Z",
+          },
+        ],
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchSourceDocuments({ documentType: "resume" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/documents?documentType=resume",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("creates protected source documents and returns the indexing job", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        document: {
+          id: "doc_1",
+          userId: "user_1",
+          documentType: "job_description",
+          title: "高级 Java 后端 JD",
+          contentPreview: "需要熟悉 JVM、并发、Spring Boot 和分布式系统",
+          fileUrl: null,
+          chunkCount: 0,
+          createdAt: "2026-06-12T00:00:00.000Z",
+        },
+        job: {
+          id: "job_1",
+          userId: "user_1",
+          type: "embed_document",
+          status: "pending",
+          progress: 0,
+          input: { sourceDocumentId: "doc_1" },
+          output: null,
+          error: null,
+          retryCount: 0,
+          queueJobId: "job_1",
+          model: null,
+          promptVersionId: null,
+          tokenUsage: 0,
+          latencyMs: null,
+          inputHash: "hash_1",
+          startedAt: null,
+          completedAt: null,
+          createdAt: "2026-06-12T00:00:00.000Z",
+          updatedAt: "2026-06-12T00:00:00.000Z",
+        },
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await createSourceDocument({
+      documentType: "job_description",
+      title: "高级 Java 后端 JD",
+      content: "需要熟悉 JVM、并发、Spring Boot 和分布式系统",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/documents",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          documentType: "job_description",
+          title: "高级 Java 后端 JD",
+          content: "需要熟悉 JVM、并发、Spring Boot 和分布式系统",
         }),
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",
