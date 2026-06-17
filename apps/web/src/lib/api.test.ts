@@ -4,6 +4,7 @@ import {
   buildAiJobsPath,
   buildApiUrl,
   buildPracticeAttemptsPath,
+  buildQuestionsPath,
   buildRagQuestionJobInput,
   buildReviewOverviewPath,
   buildSourceDocumentsPath,
@@ -11,6 +12,8 @@ import {
   createAiJob,
   createSourceDocument,
   fetchAiJobs,
+  fetchQuestion,
+  fetchQuestions,
   fetchSourceDocuments,
   fetchReviewOverview,
   fetchPracticeAttempts,
@@ -42,6 +45,17 @@ describe("web API client helpers", () => {
 
   it("builds encoded practice history paths for a question", () => {
     expect(buildPracticeAttemptsPath("q/java roots")).toBe("/practice/attempts?questionId=q%2Fjava%20roots");
+  });
+
+  it("builds question list paths with filters and pagination", () => {
+    expect(
+      buildQuestionsPath({
+        domainSlug: "java_backend",
+        categorySlug: "project deep dive",
+        page: 2,
+        pageSize: 12,
+      }),
+    ).toBe("/questions?domainSlug=java_backend&categorySlug=project+deep+dive&page=2&pageSize=12");
   });
 
   it("builds review overview paths with bounded query params", () => {
@@ -123,6 +137,61 @@ describe("web API client helpers", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/ai/jobs?status=pending",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("fetches protected questions with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 20,
+        totalPages: 0,
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchQuestions({ domainSlug: "java_backend", pageSize: 12 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/questions?domainSlug=java_backend&pageSize=12",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("fetches a protected question by id with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        id: "q_ai_1",
+        domainSlug: "java_backend",
+        categorySlug: "project-deep-dive",
+        type: "project_deep_dive",
+        difficulty: "hard",
+        title: "项目性能优化追问",
+        content: "请结合项目说明一次性能优化。",
+        tags: ["项目经历"],
+        sourceType: "ai_generated",
+        aiGenerated: true,
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchQuestion("q_ai/1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/questions/q_ai%2F1",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",

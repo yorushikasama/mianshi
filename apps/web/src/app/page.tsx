@@ -2,7 +2,6 @@ import {
   Brain,
   ChevronRight,
   ClipboardCheck,
-  Layers,
   Radar,
   Route,
   ShieldCheck,
@@ -14,6 +13,7 @@ import {
 import { getJavaBackendCatalog } from "@mianshi/shared";
 import { DashboardOverview } from "@/components/dashboard-overview";
 import { HeroMotion } from "@/components/hero-motion";
+import { QuestionCatalog } from "@/components/question-catalog";
 
 const catalog = getJavaBackendCatalog();
 
@@ -132,23 +132,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="catalog-section" id="catalog">
-        <div className="section-block">
-          <div className="section-title">
-            <Layers size={20} />
-            <h2>Java 后端知识树</h2>
-          </div>
-          <div className="category-grid">
-            {catalog.categories.map((category) => (
-              <article className="category-node" key={category.slug}>
-                <span>{String(category.order + 1).padStart(2, "0")}</span>
-                <h3>{category.name}</h3>
-                <p>{category.description}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      <QuestionCatalog categories={catalog.categories} seedQuestions={catalog.questions} />
 
       <section className="practice-strip" id="practice">
         <div>

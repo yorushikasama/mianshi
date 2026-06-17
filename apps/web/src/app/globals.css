@@ -729,6 +729,29 @@ a:focus-visible {
   margin-top: 16px;
 }
 
+.catalog-heading,
+.catalog-tree-title {
+  margin-top: 18px;
+}
+
+.catalog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.catalog-heading > span,
+.catalog-note {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.catalog-note {
+  margin: -4px 0 12px;
+}
+
 .section-block {
   padding: 22px;
 }

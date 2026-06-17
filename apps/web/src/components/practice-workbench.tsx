@@ -6,6 +6,7 @@ import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Gauge, LogIn, RotateCcw
 import { useAuth } from "./auth-provider";
 import {
   ApiError,
+  fetchQuestion,
   fetchPracticeAttempts,
   fetchPracticeReviewState,
   fetchJavaBackendAnswer,
@@ -38,8 +39,8 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
 
       try {
         const [loadedQuestion, loadedAnswer] = await Promise.all([
-          fetchJavaBackendQuestion(questionId),
-          fetchJavaBackendAnswer(questionId),
+          loadVisibleQuestion(questionId, status === "authenticated"),
+          loadVisibleAnswer(questionId, status === "authenticated"),
         ]);
         const [loadedAttempts, loadedReviewState] =
           status === "authenticated"
@@ -73,7 +74,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
   }, [questionId, status]);
 
   const isAuthenticated = status === "authenticated" && Boolean(user);
-  const canSubmit = isAuthenticated && submittedAnswer.trim().length >= 4 && !submitting;
+  const canSubmit = isAuthenticated && Boolean(answer) && submittedAnswer.trim().length >= 4 && !submitting;
   const coverageText = useMemo(() => {
     if (!result || !answer) {
       return "提交后生成";
@@ -131,7 +132,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
     );
   }
 
-  if (!question || !answer) {
+  if (!question) {
     return (
       <main className="practice-page">
         <a className="back-link" href="/">
@@ -164,6 +165,17 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
         <div className="practice-error" role="alert">
           <AlertCircle size={20} />
           <span>{error}</span>
+        </div>
+      ) : null}
+
+      {isAuthenticated && !answer ? (
+        <div className="practice-auth-callout" role="status">
+          <BookOpen size={20} />
+          <div>
+            <strong>这道题还没有答案版本</strong>
+            <span>先通过 AI job 生成答案，再提交评分。题目内容仍可用于自测和准备口头回答。</span>
+          </div>
+          <a href="/documents">去资料库</a>
         </div>
       ) : null}
 
@@ -200,7 +212,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
           <div className="practice-actions">
             <button type="submit" disabled={!canSubmit}>
               <Send size={17} />
-              {!isAuthenticated ? "登录后提交" : submitting ? "评分中..." : "提交评分"}
+              {!isAuthenticated ? "登录后提交" : !answer ? "等待答案" : submitting ? "评分中..." : "提交评分"}
             </button>
             <button
               type="button"
@@ -255,7 +267,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
             </div>
           ) : null}
 
-          {result ? (
+          {result && answer ? (
             <div className="result-panel">
               <div className="result-score">
                 <strong>{result.score}</strong>
@@ -304,6 +316,30 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
       </section>
     </main>
   );
+}
+
+async function loadVisibleQuestion(questionId: string, isAuthenticated: boolean) {
+  if (!isAuthenticated) {
+    return fetchJavaBackendQuestion(questionId);
+  }
+
+  try {
+    return await fetchQuestion(questionId);
+  } catch {
+    return fetchJavaBackendQuestion(questionId);
+  }
+}
+
+async function loadVisibleAnswer(questionId: string, isAuthenticated: boolean) {
+  if (!isAuthenticated) {
+    return fetchJavaBackendAnswer(questionId);
+  }
+
+  try {
+    return await fetchJavaBackendAnswer(questionId);
+  } catch {
+    return null;
+  }
 }
 
 function formatDateTime(value?: string) {

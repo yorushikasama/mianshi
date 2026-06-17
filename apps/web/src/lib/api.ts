@@ -109,6 +109,47 @@ export async function fetchCurrentUser() {
   });
 }
 
+export function buildQuestionsPath(input?: {
+  domainSlug?: string;
+  categorySlug?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  const searchParams = new URLSearchParams();
+
+  if (input?.domainSlug) {
+    searchParams.set("domainSlug", input.domainSlug);
+  }
+
+  if (input?.categorySlug) {
+    searchParams.set("categorySlug", input.categorySlug);
+  }
+
+  if (input?.page) {
+    searchParams.set("page", String(input.page));
+  }
+
+  if (input?.pageSize) {
+    searchParams.set("pageSize", String(input.pageSize));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/questions?${query}` : "/questions";
+}
+
+export async function fetchQuestions(input?: { domainSlug?: string; categorySlug?: string; page?: number; pageSize?: number }) {
+  return request<{ items: Question[]; total: number; page: number; pageSize: number; totalPages: number }>(
+    buildQuestionsPath(input),
+    { auth: true },
+  );
+}
+
+export async function fetchQuestion(questionId: string) {
+  return request<Question>(`/questions/${encodeURIComponent(questionId)}`, {
+    auth: true,
+  });
+}
+
 export async function submitPracticeAttempt(input: PracticeAttemptInput) {
   return request<PracticeAttemptResult>("/practice/attempts", {
     method: "POST",
