@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "mianshi",
+  "project_id": "a5c958a0-5b2f-4b52-92df-781c265461ce"
+}
