@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import type { DifficultyLevel, QuestionType, SourceType } from "@mianshi/shared";
+import type { Answer, DifficultyLevel, QuestionType, SourceType } from "@mianshi/shared";
 import { PrismaService } from "../database/prisma.service";
+import type { PracticeQuestionRepository } from "../practice/practice.service";
 import type { QuestionRecord, QuestionRepository } from "./question.service";
 
 type PrismaQuestionWithRelations = {
@@ -19,8 +20,23 @@ type PrismaQuestionWithRelations = {
   tags: { tag: { name: string } }[];
 };
 
+type PrismaPracticeQuestionWithRelations = PrismaQuestionWithRelations & {
+  answers: {
+    id: string;
+    questionId: string;
+    answerType: Answer["answerType"];
+    status: Answer["status"];
+    content: string;
+    keyPoints: unknown;
+    model: string | null;
+    promptVersionId: string | null;
+    promptVersion: { version: string } | null;
+    tokenUsage: number;
+  }[];
+};
+
 @Injectable()
-export class PrismaQuestionRepository implements QuestionRepository {
+export class PrismaQuestionRepository implements QuestionRepository, PracticeQuestionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async listQuestions(input: {
@@ -64,6 +80,49 @@ export class PrismaQuestionRepository implements QuestionRepository {
     });
 
     return question ? toQuestionRecord(question) : null;
+  }
+
+  async findPracticeQuestion(input: { userId: string; questionId: string }) {
+    const question = await this.prisma.question.findFirst({
+      where: {
+        id: input.questionId,
+        OR: [{ userId: null }, { userId: input.userId }],
+      },
+      include: {
+        ...questionRelations,
+        answers: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            questionId: true,
+            answerType: true,
+            status: true,
+            content: true,
+            keyPoints: true,
+            model: true,
+            promptVersionId: true,
+            promptVersion: {
+              select: {
+                version: true,
+              },
+            },
+            tokenUsage: true,
+          },
+        },
+      },
+    });
+
+    if (!question) {
+      return null;
+    }
+
+    const typedQuestion = question as PrismaPracticeQuestionWithRelations;
+
+    return {
+      question: toQuestionRecord(typedQuestion),
+      answer: typedQuestion.answers[0] ? toAnswer(typedQuestion.answers[0]) : null,
+    };
   }
 
   async createQuestion(input: Omit<QuestionRecord, "id" | "createdAt" | "updatedAt">) {
@@ -194,4 +253,26 @@ function toQuestionRecord(question: PrismaQuestionWithRelations): QuestionRecord
     createdAt: question.createdAt,
     updatedAt: question.updatedAt,
   };
+}
+
+function toAnswer(answer: PrismaPracticeQuestionWithRelations["answers"][number]): Answer {
+  return {
+    id: answer.id,
+    questionId: answer.questionId,
+    answerType: answer.answerType,
+    status: answer.status,
+    content: answer.content,
+    keyPoints: asStringArray(answer.keyPoints),
+    model: answer.model ?? "unknown",
+    promptVersion: answer.promptVersion?.version ?? answer.promptVersionId ?? "unknown",
+    tokenUsage: answer.tokenUsage,
+  };
+}
+
+function asStringArray(input: unknown): string[] {
+  if (Array.isArray(input) && input.every((item) => typeof item === "string")) {
+    return input;
+  }
+
+  return [];
 }

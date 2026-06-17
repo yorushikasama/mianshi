@@ -13,7 +13,7 @@ import { PrismaDocumentRepository } from "./documents/prisma-document.repository
 import { HealthController } from "./health/health.controller";
 import { PracticeController } from "./practice/practice.controller";
 import { PrismaPracticeAttemptRepository } from "./practice/prisma-practice-attempt.repository";
-import { PRACTICE_ATTEMPT_REPOSITORY, PracticeService } from "./practice/practice.service";
+import { PRACTICE_ATTEMPT_REPOSITORY, PRACTICE_QUESTION_REPOSITORY, PracticeService } from "./practice/practice.service";
 import { PrismaQuestionRepository } from "./questions/prisma-question.repository";
 import { QuestionController } from "./questions/question.controller";
 import { QUESTION_REPOSITORY, QuestionService } from "./questions/question.service";
@@ -52,6 +52,10 @@ import { REVIEW_REPOSITORY, ReviewService } from "./review/review.service";
     {
       provide: PRACTICE_ATTEMPT_REPOSITORY,
       useExisting: PrismaPracticeAttemptRepository,
+    },
+    {
+      provide: PRACTICE_QUESTION_REPOSITORY,
+      useExisting: PrismaQuestionRepository,
     },
     PrismaReviewRepository,
     ReviewService,

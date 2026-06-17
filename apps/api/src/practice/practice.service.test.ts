@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { PracticeAttemptResult } from "@mianshi/shared";
+import type { Answer, PracticeAttemptResult, Question } from "@mianshi/shared";
 import { CatalogService } from "../catalog/catalog.service";
-import { PracticeService, type PracticeAttemptRepository } from "./practice.service";
+import { PracticeService, type PracticeAttemptRepository, type PracticeQuestionRepository } from "./practice.service";
 
 interface StoredAttempt {
   userId: string;
@@ -25,8 +25,51 @@ class FakePracticeAttemptRepository implements PracticeAttemptRepository {
   }
 }
 
+class FakePracticeQuestionRepository implements PracticeQuestionRepository {
+  private readonly records: { userId: string | null; question: Question; answer: Answer | null }[] = [
+    {
+      userId: "user_1",
+      question: {
+        id: "q_user_spring_tx",
+        domainSlug: "java_backend",
+        categorySlug: "spring",
+        type: "scenario",
+        difficulty: "medium",
+        title: "Spring 事务为什么会失效？",
+        content: "请解释 Spring 声明式事务失效的常见原因。",
+        tags: ["自调用", "非 public 方法", "异常类型"],
+        sourceType: "ai_generated",
+        aiGenerated: true,
+      },
+      answer: {
+        id: "a_user_spring_tx",
+        questionId: "q_user_spring_tx",
+        answerType: "standard",
+        status: "draft",
+        content: "常见原因包括同类自调用绕过代理、方法不是 public、异常被捕获或不是回滚异常、事务传播配置不符合预期。",
+        keyPoints: ["自调用", "非 public 方法", "异常类型"],
+        model: "test-model",
+        promptVersion: "test",
+        tokenUsage: 0,
+      },
+    },
+  ];
+
+  async findPracticeQuestion(input: { userId: string; questionId: string }) {
+    const record = this.records.find(
+      (item) => item.question.id === input.questionId && (item.userId === null || item.userId === input.userId),
+    );
+
+    return record ? { question: record.question, answer: record.answer } : null;
+  }
+}
+
 function createService() {
-  return new PracticeService(new CatalogService(), new FakePracticeAttemptRepository());
+  return new PracticeService(
+    new CatalogService(),
+    new FakePracticeAttemptRepository(),
+    new FakePracticeQuestionRepository(),
+  );
 }
 
 describe("PracticeService", () => {
@@ -51,6 +94,30 @@ describe("PracticeService", () => {
       service.submitAttempt("user_1", {
         questionId: "missing",
         submittedAnswer: "这是一段回答。",
+      }),
+    ).rejects.toThrow("Question not found");
+  });
+
+  it("scores attempts for the current user's persisted questions", async () => {
+    const service = createService();
+
+    const result = await service.submitAttempt("user_1", {
+      questionId: "q_user_spring_tx",
+      submittedAnswer: "Spring 事务失效常见原因包括自调用绕过代理、非 public 方法、异常类型不触发回滚。",
+      now: new Date("2026-06-10T00:00:00.000Z"),
+    });
+
+    expect(result.questionId).toBe("q_user_spring_tx");
+    expect(result.score).toBeGreaterThanOrEqual(85);
+  });
+
+  it("does not score another user's persisted questions", async () => {
+    const service = createService();
+
+    await expect(() =>
+      service.submitAttempt("user_2", {
+        questionId: "q_user_spring_tx",
+        submittedAnswer: "Spring 事务失效常见原因包括自调用绕过代理、非 public 方法、异常类型不触发回滚。",
       }),
     ).rejects.toThrow("Question not found");
   });
