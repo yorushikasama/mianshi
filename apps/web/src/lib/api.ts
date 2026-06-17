@@ -5,6 +5,7 @@ import type {
   AiJobStatus,
   CreateAiJobInput,
   CreateSourceDocumentInput,
+  DocumentType,
   SourceDocument,
   SourceDocumentListQuery,
   SourceDocumentListResult,
@@ -188,6 +189,25 @@ export async function createAiJob(input: CreateAiJobInput) {
     body: JSON.stringify(input),
     auth: true,
   });
+}
+
+export function buildRagQuestionJobInput(input: {
+  categorySlug: string;
+  documentType?: DocumentType;
+  focus?: string;
+  count: number | string;
+  topK: number | string;
+}) {
+  const focus = input.focus?.trim();
+
+  return {
+    domainSlug: "java_backend",
+    categorySlug: input.categorySlug,
+    ...(input.documentType ? { documentType: input.documentType } : {}),
+    ...(focus ? { focus } : {}),
+    count: Number(input.count),
+    topK: Number(input.topK),
+  };
 }
 
 export function buildSourceDocumentsPath(input?: SourceDocumentListQuery) {

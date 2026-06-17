@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { AiJob, DocumentType, SourceDocument } from "@mianshi/shared";
-import { documentTypes } from "@mianshi/shared";
+import { documentTypes, JAVA_BACKEND_CATEGORIES } from "@mianshi/shared";
 import {
   AlertCircle,
   ArrowLeft,
@@ -15,7 +15,14 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { useAuth } from "./auth-provider";
-import { ApiError, createSourceDocument, fetchAiJobs, fetchSourceDocuments } from "@/lib/api";
+import {
+  ApiError,
+  buildRagQuestionJobInput,
+  createAiJob,
+  createSourceDocument,
+  fetchAiJobs,
+  fetchSourceDocuments,
+} from "@/lib/api";
 
 const documentTypeLabels: Record<DocumentType, string> = {
   resume: "简历",
@@ -33,32 +40,53 @@ const documentTypeHints: Record<DocumentType, string> = {
 
 const jobStatusLabels: Record<AiJob["status"], string> = {
   pending: "等待中",
-  running: "索引中",
+  running: "执行中",
   succeeded: "已完成",
   failed: "失败",
   canceled: "已取消",
 };
 
+const generationCounts = [3, 5, 8] as const;
+const retrievalCounts = [3, 5, 8] as const;
+
 export function DocumentWorkbench() {
   const { status, user } = useAuth();
   const [documentType, setDocumentType] = useState<DocumentType>("resume");
+  const [ragCategorySlug, setRagCategorySlug] = useState("project-deep-dive");
+  const [ragDocumentType, setRagDocumentType] = useState<DocumentType>("resume");
+  const [ragFocus, setRagFocus] = useState("");
+  const [ragCount, setRagCount] = useState("3");
+  const [ragTopK, setRagTopK] = useState("5");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [documents, setDocuments] = useState<SourceDocument[]>([]);
   const [jobs, setJobs] = useState<AiJob[]>([]);
   const [createdJob, setCreatedJob] = useState<AiJob | null>(null);
+  const [createdRagJob, setCreatedRagJob] = useState<AiJob | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const isAuthenticated = status === "authenticated" && Boolean(user);
-  const activeDocumentJob = useMemo(
-    () => jobs.find((job) => job.type === "embed_document" && ["pending", "running"].includes(job.status)),
+  const visibleJobs = useMemo(
+    () => jobs.filter((job) => job.type === "embed_document" || job.type === "rag_generate_questions"),
     [jobs],
+  );
+  const activeDocumentJob = useMemo(
+    () => visibleJobs.find((job) => job.type === "embed_document" && ["pending", "running"].includes(job.status)),
+    [visibleJobs],
+  );
+  const activeRagJob = useMemo(
+    () =>
+      visibleJobs.find((job) => job.type === "rag_generate_questions" && ["pending", "running"].includes(job.status)),
+    [visibleJobs],
   );
   const contentLength = content.trim().length;
   const canSubmit = isAuthenticated && title.trim().length > 0 && contentLength > 0 && !submitting;
+  const hasIndexedDocuments = documents.some((document) => document.chunkCount > 0);
+  const canGenerate = isAuthenticated && hasIndexedDocuments && !generating;
 
   useEffect(() => {
     let active = true;
@@ -82,7 +110,7 @@ export function DocumentWorkbench() {
 
         if (active) {
           setDocuments(documentResult.items);
-          setJobs(jobResult.items.filter((job) => job.type === "embed_document"));
+          setJobs(jobResult.items.filter((job) => job.type === "embed_document" || job.type === "rag_generate_questions"));
         }
       } catch (loadError) {
         if (active) {
@@ -105,7 +133,7 @@ export function DocumentWorkbench() {
   }, [isAuthenticated, status]);
 
   useEffect(() => {
-    if (!isAuthenticated || !activeDocumentJob) {
+    if (!isAuthenticated || (!activeDocumentJob && !activeRagJob)) {
       return;
     }
 
@@ -116,14 +144,14 @@ export function DocumentWorkbench() {
           fetchAiJobs({ pageSize: 8 }),
         ]);
         setDocuments(documentResult.items);
-        setJobs(jobResult.items.filter((job) => job.type === "embed_document"));
+        setJobs(jobResult.items.filter((job) => job.type === "embed_document" || job.type === "rag_generate_questions"));
       } catch {
         window.clearInterval(timer);
       }
     }, 5000);
 
     return () => window.clearInterval(timer);
-  }, [activeDocumentJob, isAuthenticated]);
+  }, [activeDocumentJob, activeRagJob, isAuthenticated]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -157,6 +185,44 @@ export function DocumentWorkbench() {
       setError(toErrorMessage(submitError));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGenerateQuestions(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!isAuthenticated) {
+      setError("请先登录，再生成个性化题目。");
+      return;
+    }
+
+    if (!hasIndexedDocuments) {
+      setError("请先等待至少一份资料完成索引，再生成个性化题目。");
+      return;
+    }
+
+    setGenerating(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const job = await createAiJob({
+        type: "rag_generate_questions",
+        input: buildRagQuestionJobInput({
+          categorySlug: ragCategorySlug,
+          documentType: ragDocumentType,
+          focus: ragFocus,
+          count: ragCount,
+          topK: ragTopK,
+        }),
+      });
+      setCreatedRagJob(job);
+      setJobs((currentJobs) => [job, ...currentJobs.filter((currentJob) => currentJob.id !== job.id)]);
+      setSuccess("个性化题目生成任务已进入队列，完成后会写入题库。");
+    } catch (generateError) {
+      setError(toErrorMessage(generateError));
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -280,17 +346,126 @@ export function DocumentWorkbench() {
           )}
 
           <ol className="document-job-list" aria-label="最近资料索引任务">
-            {jobs.slice(0, 5).map((job) => (
+            {visibleJobs.slice(0, 5).map((job) => (
               <li key={job.id}>
                 <span className={`job-status ${job.status}`}>{jobStatusLabels[job.status]}</span>
                 <div>
-                  <strong>{formatDateTime(job.createdAt)}</strong>
+                  <strong>{job.type === "rag_generate_questions" ? "个性化题目" : "资料索引"}</strong>
                   <span>{job.progress}% · 重试 {job.retryCount}</span>
                 </div>
               </li>
             ))}
           </ol>
         </aside>
+      </section>
+
+      <section className="document-rag-panel" aria-labelledby="document-rag-title">
+        <div>
+          <div className="section-title">
+            <DatabaseZap size={20} />
+            <h2 id="document-rag-title">从资料生成个性化题目</h2>
+          </div>
+          <p>
+            后端会检索当前账号的资料片段，把相关上下文传给结构化生成任务，生成结果进入题库。
+          </p>
+        </div>
+
+        <form className="document-rag-form" onSubmit={handleGenerateQuestions}>
+          <label className="rag-field" htmlFor="rag-category">
+            分类
+            <select
+              id="rag-category"
+              value={ragCategorySlug}
+              disabled={!isAuthenticated || generating}
+              onChange={(event) => setRagCategorySlug(event.target.value)}
+            >
+              {JAVA_BACKEND_CATEGORIES.map((category) => (
+                <option key={category.slug} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="rag-field" htmlFor="rag-document-type">
+            资料范围
+            <select
+              id="rag-document-type"
+              value={ragDocumentType}
+              disabled={!isAuthenticated || generating}
+              onChange={(event) => setRagDocumentType(event.target.value as DocumentType)}
+            >
+              {documentTypes.map((type) => (
+                <option key={type} value={type}>
+                  {documentTypeLabels[type]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="rag-field" htmlFor="rag-count">
+            题目数
+            <select
+              id="rag-count"
+              value={ragCount}
+              disabled={!isAuthenticated || generating}
+              onChange={(event) => setRagCount(event.target.value)}
+            >
+              {generationCounts.map((count) => (
+                <option key={count} value={count}>
+                  {count} 题
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="rag-field" htmlFor="rag-top-k">
+            检索片段
+            <select
+              id="rag-top-k"
+              value={ragTopK}
+              disabled={!isAuthenticated || generating}
+              onChange={(event) => setRagTopK(event.target.value)}
+            >
+              {retrievalCounts.map((count) => (
+                <option key={count} value={count}>
+                  Top {count}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="rag-field rag-focus-field" htmlFor="rag-focus">
+            训练重点
+            <input
+              id="rag-focus"
+              value={ragFocus}
+              disabled={!isAuthenticated || generating}
+              maxLength={120}
+              onChange={(event) => setRagFocus(event.target.value)}
+              placeholder="例如：订单系统缓存一致性、秒杀库存扣减、慢 SQL 排查"
+            />
+          </label>
+
+          <button type="submit" disabled={!canGenerate}>
+            {generating ? <Loader2 className="spin-icon" size={17} /> : <DatabaseZap size={17} />}
+            {generating ? "创建任务中" : "生成题目"}
+          </button>
+        </form>
+
+        {createdRagJob ? (
+          <div className="document-job-card rag-job-card" role="status">
+            <span className={`job-status ${createdRagJob.status}`}>{jobStatusLabels[createdRagJob.status]}</span>
+            <strong>{createdRagJob.type}</strong>
+            <p>任务完成后，题目会带着资料引用进入 Java 后端题库。</p>
+          </div>
+        ) : !hasIndexedDocuments ? (
+          <div className="document-empty compact">
+            <RefreshCw size={19} />
+            <strong>等待资料索引完成</strong>
+            <span>至少有一份资料产生 chunk 后，才会开放个性化题目生成。</span>
+          </div>
+        ) : null}
       </section>
 
       <section className="document-library" aria-labelledby="document-library-title">

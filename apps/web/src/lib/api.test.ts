@@ -4,6 +4,7 @@ import {
   buildAiJobsPath,
   buildApiUrl,
   buildPracticeAttemptsPath,
+  buildRagQuestionJobInput,
   buildReviewOverviewPath,
   buildSourceDocumentsPath,
   clearAccessToken,
@@ -175,6 +176,93 @@ describe("web API client helpers", () => {
         }),
       }),
     );
+  });
+
+  it("creates protected RAG question generation jobs with document filters", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        id: "job_rag_1",
+        userId: "user_1",
+        type: "rag_generate_questions",
+        status: "pending",
+        progress: 0,
+        input: {
+          domainSlug: "java_backend",
+          categorySlug: "redis",
+          focus: "订单系统缓存一致性",
+          documentType: "resume",
+          count: 3,
+          topK: 5,
+        },
+        output: null,
+        error: null,
+        retryCount: 0,
+        queueJobId: "job_rag_1",
+        model: null,
+        promptVersionId: null,
+        tokenUsage: 0,
+        latencyMs: null,
+        inputHash: "hash_rag_1",
+        startedAt: null,
+        completedAt: null,
+        createdAt: "2026-06-12T00:00:00.000Z",
+        updatedAt: "2026-06-12T00:00:00.000Z",
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await createAiJob({
+      type: "rag_generate_questions",
+      input: {
+        domainSlug: "java_backend",
+        categorySlug: "redis",
+        focus: "订单系统缓存一致性",
+        documentType: "resume",
+        count: 3,
+        topK: 5,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/ai/jobs",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          type: "rag_generate_questions",
+          input: {
+            domainSlug: "java_backend",
+            categorySlug: "redis",
+            focus: "订单系统缓存一致性",
+            documentType: "resume",
+            count: 3,
+            topK: 5,
+          },
+        }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("builds RAG question generation inputs from form values", () => {
+    expect(
+      buildRagQuestionJobInput({
+        categorySlug: "redis",
+        documentType: "resume",
+        focus: "  订单系统缓存一致性  ",
+        count: "3",
+        topK: "5",
+      }),
+    ).toEqual({
+      domainSlug: "java_backend",
+      categorySlug: "redis",
+      documentType: "resume",
+      focus: "订单系统缓存一致性",
+      count: 3,
+      topK: 5,
+    });
   });
 
   it("fetches protected source documents with the current access token", async () => {

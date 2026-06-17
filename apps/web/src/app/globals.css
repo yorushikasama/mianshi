@@ -1369,7 +1369,8 @@ a:focus-visible {
 
 .document-form-panel,
 .document-side-panel,
-.document-library {
+.document-library,
+.document-rag-panel {
   border: 1px solid var(--line);
   background: var(--surface-solid);
 }
@@ -1386,20 +1387,29 @@ a:focus-visible {
 
 .document-form-panel .section-title,
 .document-side-panel .section-title,
-.document-library .section-title {
+.document-library .section-title,
+.document-rag-panel .section-title {
   margin-bottom: 4px;
 }
 
-.document-form-panel label {
+.document-form-panel label,
+.document-rag-form label {
   margin-top: 6px;
   color: var(--ink);
   font-size: 14px;
   font-weight: 900;
 }
 
+.document-rag-form label {
+  display: grid;
+  gap: 8px;
+}
+
 .document-form-panel input,
 .document-form-panel select,
-.document-form-panel textarea {
+.document-form-panel textarea,
+.document-rag-form input,
+.document-rag-form select {
   width: 100%;
   border: 1px solid var(--line);
   background: rgba(246, 241, 232, 0.72);
@@ -1408,7 +1418,9 @@ a:focus-visible {
 }
 
 .document-form-panel input,
-.document-form-panel select {
+.document-form-panel select,
+.document-rag-form input,
+.document-rag-form select {
   min-height: 46px;
   padding: 0 13px;
 }
@@ -1422,14 +1434,18 @@ a:focus-visible {
 
 .document-form-panel input:focus,
 .document-form-panel select:focus,
-.document-form-panel textarea:focus {
+.document-form-panel textarea:focus,
+.document-rag-form input:focus,
+.document-rag-form select:focus {
   outline: 3px solid rgba(8, 127, 106, 0.22);
   outline-offset: 0;
 }
 
 .document-form-panel input:disabled,
 .document-form-panel select:disabled,
-.document-form-panel textarea:disabled {
+.document-form-panel textarea:disabled,
+.document-rag-form input:disabled,
+.document-rag-form select:disabled {
   cursor: not-allowed;
   opacity: 0.62;
 }
@@ -1455,7 +1471,8 @@ a:focus-visible {
   font-weight: 900;
 }
 
-.document-form-footer button {
+.document-form-footer button,
+.document-rag-form button {
   display: inline-flex;
   min-height: 46px;
   align-items: center;
@@ -1474,11 +1491,13 @@ a:focus-visible {
     border-color 180ms ease;
 }
 
-.document-form-footer button:hover:not(:disabled) {
+.document-form-footer button:hover:not(:disabled),
+.document-rag-form button:hover:not(:disabled) {
   transform: translateY(-2px);
 }
 
-.document-form-footer button:disabled {
+.document-form-footer button:disabled,
+.document-rag-form button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -1576,6 +1595,41 @@ a:focus-visible {
 .document-library {
   margin-top: 16px;
   padding: 22px;
+}
+
+.document-rag-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 16px;
+  padding: 22px;
+}
+
+.document-rag-panel p {
+  max-width: 58ch;
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+
+.document-rag-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.document-rag-form .rag-focus-field {
+  grid-column: span 2;
+}
+
+.document-rag-form button {
+  min-width: 132px;
+}
+
+.rag-job-card {
+  grid-column: 1 / -1;
+  margin-top: 0;
 }
 
 .document-library-heading {
@@ -1873,7 +1927,8 @@ a:focus-visible {
 
   .document-form-panel,
   .document-side-panel,
-  .document-library {
+  .document-library,
+  .document-rag-panel {
     padding: 16px;
   }
 
@@ -1884,6 +1939,19 @@ a:focus-visible {
   }
 
   .document-form-footer button {
+    width: 100%;
+  }
+
+  .document-rag-panel,
+  .document-rag-form {
+    grid-template-columns: 1fr;
+  }
+
+  .document-rag-form .rag-focus-field {
+    grid-column: auto;
+  }
+
+  .document-rag-form button {
     width: 100%;
   }
 
