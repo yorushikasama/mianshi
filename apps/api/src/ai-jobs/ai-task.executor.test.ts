@@ -340,6 +340,120 @@ describe("AiTaskExecutorService", () => {
     });
   });
 
+  it("generates personalized questions from user-isolated RAG chunks", async () => {
+    const repository = createRepository();
+    const modelClient = createModelClient({
+      embeddings: [[0.21, 0.34, 0.55]],
+      questionsOutput: {
+        questions: [
+          {
+            domainSlug: "java_backend",
+            categorySlug: "redis",
+            type: "project_deep_dive",
+            difficulty: "hard",
+            title: "你在订单系统里如何设计 Redis 缓存一致性方案？",
+            content: "请结合简历中的订单链路优化项目，说明缓存更新策略、降级方案和一致性取舍。",
+            tags: ["Redis", "项目经历", "缓存一致性"],
+          },
+        ],
+      },
+      tokenUsage: 377,
+    });
+    const executor = new AiTaskExecutorService(repository as never, modelClient as never);
+
+    const result = await executor.execute({
+      jobId: "job_9",
+      userId: "user_1",
+      type: "rag_generate_questions",
+      input: {
+        domainSlug: "java_backend",
+        categorySlug: "redis",
+        count: 1,
+        focus: "订单系统 Redis 缓存一致性",
+        documentType: "resume",
+        topK: 2,
+      },
+    });
+
+    expect(modelClient.embedTexts).toHaveBeenCalledWith({
+      texts: ["java_backend redis 订单系统 Redis 缓存一致性"],
+    });
+    expect(repository.findRelevantDocumentChunks).toHaveBeenCalledWith({
+      userId: "user_1",
+      queryEmbedding: [0.21, 0.34, 0.55],
+      documentType: "resume",
+      topK: 2,
+    });
+    expect(repository.upsertPromptVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "rag_generate_questions:java_backend",
+        version: "v1",
+        outputSchema: expect.objectContaining({ type: "object" }),
+      }),
+    );
+    expect(modelClient.generateQuestions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          domainSlug: "java_backend",
+          categorySlug: "redis",
+          count: 1,
+          focus: "订单系统 Redis 缓存一致性",
+          documentType: "resume",
+          topK: 2,
+        },
+        ragContext: [
+          expect.objectContaining({
+            documentId: "doc_1",
+            documentType: "resume",
+            documentTitle: "Java 后端简历",
+            content: "订单系统使用 Redis 缓存热点商品和订单摘要，曾处理缓存击穿和一致性问题。",
+          }),
+        ],
+        promptVersion: expect.objectContaining({ id: "prompt_1" }),
+      }),
+    );
+    expect(repository.createGeneratedQuestions).toHaveBeenCalledWith({
+      userId: "user_1",
+      questions: [
+        {
+          domainSlug: "java_backend",
+          categorySlug: "redis",
+          type: "project_deep_dive",
+          difficulty: "hard",
+          title: "你在订单系统里如何设计 Redis 缓存一致性方案？",
+          content: "请结合简历中的订单链路优化项目，说明缓存更新策略、降级方案和一致性取舍。",
+          tags: ["Redis", "项目经历", "缓存一致性"],
+        },
+      ],
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 754,
+    });
+    expect(result).toEqual({
+      output: {
+        questions: [
+          expect.objectContaining({
+            id: "q_ai_1",
+            sourceType: "ai_generated",
+          }),
+        ],
+        sources: [
+          {
+            chunkId: "chunk_1",
+            documentId: "doc_1",
+            documentType: "resume",
+            documentTitle: "Java 后端简历",
+            chunkIndex: 0,
+            score: 0.91,
+          },
+        ],
+      },
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 754,
+    });
+  });
+
   it("rejects invalid structured answer output before writing it to storage", async () => {
     const repository = createRepository();
     const modelClient = createModelClient({
@@ -520,6 +634,23 @@ function createRepository() {
         ...chunk,
       })),
     ),
+    findRelevantDocumentChunks: vi.fn(async () => [
+      {
+        id: "chunk_1",
+        documentId: "doc_1",
+        documentType: "resume",
+        documentTitle: "Java 后端简历",
+        chunkIndex: 0,
+        content: "订单系统使用 Redis 缓存热点商品和订单摘要，曾处理缓存击穿和一致性问题。",
+        metadata: {
+          documentId: "doc_1",
+          chunkIndex: 0,
+          startChar: 0,
+          endChar: 36,
+        },
+        score: 0.91,
+      },
+    ]),
   };
 }
 

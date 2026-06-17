@@ -236,6 +236,14 @@ Redis + BullMQ 负责以下任务：
 - 根据问题语义检索相关片段
 - 让 AI 基于检索内容生成个性化题目和答案
 
+当前实现：
+
+- `embed_document` AI job 会读取当前用户的来源文档，切块后生成 embedding，并替换该文档的 chunk。
+- `rag_generate_questions` AI job 会根据 domain、category、difficulty、focus 生成查询 embedding。
+- 后端只从当前用户的 `document_chunks` 中检索相关片段，可按 `documentType` 过滤。
+- 检索结果作为 `ragContext` 传给结构化题目生成 Prompt，AI 不直接访问数据库。
+- 生成题目按当前用户入库，并在 job output 中返回引用来源 chunk。
+
 原则：
 
 - AI 不直接访问数据库
@@ -332,8 +340,11 @@ Redis + BullMQ 负责以下任务：
 -> 文档切块
 -> 生成 embedding
 -> 存入 pgvector
--> 生成题目时检索相关片段
--> AI 基于片段生成个性化面试题
+-> 创建 rag_generate_questions AI job
+-> 后端生成查询 embedding
+-> 按 user_id 检索相关 chunk
+-> AI 基于筛选片段生成个性化面试题
+-> Zod 校验后写入 questions
 ```
 
 ## 7. 数据模型草案
@@ -490,12 +501,27 @@ GET    /review/today
 
 POST   /documents
 GET    /documents
-POST   /rag/generate-questions
 
 POST   /ai/jobs
 GET    /ai/jobs
 GET    /ai/jobs/:id
 POST   /ai/jobs/:id/cancel
+```
+
+RAG 个性化题目生成使用 `POST /ai/jobs`：
+
+```json
+{
+  "type": "rag_generate_questions",
+  "input": {
+    "domainSlug": "java_backend",
+    "categorySlug": "redis",
+    "focus": "订单系统 Redis 缓存一致性",
+    "documentType": "resume",
+    "count": 3,
+    "topK": 5
+  }
+}
 ```
 
 ### 8.3 错误格式

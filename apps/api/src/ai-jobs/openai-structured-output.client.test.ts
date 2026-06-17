@@ -117,6 +117,80 @@ describe("OpenAiStructuredOutputClient", () => {
     ).rejects.toThrow("OpenAI refused structured output");
   });
 
+  it("includes RAG context when generating personalized questions", async () => {
+    const parse = vi.fn(async () => ({
+      model: "gpt-5.5",
+      usage: { total_tokens: 377 },
+      choices: [
+        {
+          message: {
+            parsed: {
+              questions: [
+                {
+                  domainSlug: "java_backend",
+                  categorySlug: "redis",
+                  type: "project_deep_dive",
+                  difficulty: "hard",
+                  title: "你在订单系统里如何设计 Redis 缓存一致性方案？",
+                  content: "请结合简历中的订单链路优化项目说明你的方案。",
+                  tags: ["Redis", "项目经历"],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }));
+    const client = new OpenAiStructuredOutputClient(
+      { chat: { completions: { parse } } } as never,
+      { apiKey: "key", model: "gpt-5.5" },
+    );
+
+    await client.generateQuestions({
+      input: {
+        domainSlug: "java_backend",
+        categorySlug: "redis",
+        count: 1,
+        focus: "订单系统 Redis 缓存一致性",
+      },
+      ragContext: [
+        {
+          chunkId: "chunk_1",
+          documentId: "doc_1",
+          documentType: "resume",
+          documentTitle: "Java 后端简历",
+          chunkIndex: 0,
+          content: "订单系统使用 Redis 缓存热点商品和订单摘要。",
+          score: 0.91,
+        },
+      ],
+      promptVersion: {
+        ...promptVersion,
+        name: "rag_generate_questions:java_backend",
+      },
+    });
+
+    expect(parse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response_format: expect.any(Object),
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining("ragContext"),
+          }),
+        ]),
+      }),
+    );
+    expect(parse.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            content: expect.stringContaining("订单系统使用 Redis 缓存热点商品和订单摘要"),
+          }),
+        ]),
+      }),
+    );
+  });
+
   it("scores practice attempts with structured output parsing", async () => {
     const parse = vi.fn(async () => ({
       model: "gpt-5.5",

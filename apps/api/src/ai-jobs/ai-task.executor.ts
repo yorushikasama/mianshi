@@ -37,6 +37,11 @@ const GenerateQuestionsInputSchema = z.object({
   focus: z.string().trim().min(1).max(1000).optional(),
 });
 
+const RagGenerateQuestionsInputSchema = GenerateQuestionsInputSchema.extend({
+  documentType: z.enum(["resume", "job_description", "project_note", "learning_note"]).optional(),
+  topK: z.coerce.number().int().min(1).max(12).default(5),
+});
+
 const GenerateAnswerInputSchema = z.object({
   questionId: z.string().trim().min(1),
   answerType: z.enum(answerTypes).optional(),
@@ -148,6 +153,17 @@ export interface PersistedDocumentChunk {
   embedding: number[];
 }
 
+export interface RelevantDocumentChunk {
+  id: string;
+  documentId: string;
+  documentType: DocumentType;
+  documentTitle: string;
+  chunkIndex: number;
+  content: string;
+  metadata: RagChunkMetadata;
+  score: number;
+}
+
 export interface AiGenerationRepository {
   upsertPromptVersion(input: Omit<PromptVersionRecord, "id">): Promise<PromptVersionRecord>;
   createGeneratedQuestions(input: {
@@ -188,6 +204,12 @@ export interface AiGenerationRepository {
       embedding: number[];
     }>;
   }): Promise<PersistedDocumentChunk[]>;
+  findRelevantDocumentChunks(input: {
+    userId: string;
+    queryEmbedding: number[];
+    documentType?: DocumentType;
+    topK: number;
+  }): Promise<RelevantDocumentChunk[]>;
 }
 
 export interface AiModelClientResult {
@@ -204,8 +226,9 @@ export interface AiEmbeddingClientResult {
 
 export interface AiModelClient {
   generateQuestions(input: {
-    input: z.infer<typeof GenerateQuestionsInputSchema>;
+    input: z.infer<typeof GenerateQuestionsInputSchema> | z.infer<typeof RagGenerateQuestionsInputSchema>;
     promptVersion: PromptVersionRecord;
+    ragContext?: RelevantDocumentChunk[];
   }): Promise<AiModelClientResult>;
   generateAnswer(input: {
     input: z.infer<typeof GenerateAnswerInputSchema>;
@@ -254,6 +277,10 @@ export class AiTaskExecutorService implements AiTaskExecutor {
 
     if (input.type === "embed_document") {
       return this.embedDocument(input);
+    }
+
+    if (input.type === "rag_generate_questions") {
+      return this.ragGenerateQuestions(input);
     }
 
     throw new Error(`AI task type is not supported yet: ${input.type}`);
@@ -469,6 +496,71 @@ export class AiTaskExecutorService implements AiTaskExecutor {
       tokenUsage: response.tokenUsage,
     };
   }
+
+  private async ragGenerateQuestions(input: AiTaskExecutionInput): Promise<AiTaskExecutionResult> {
+    const parsedInput = RagGenerateQuestionsInputSchema.parse(input.input);
+    const embeddingResponse = await this.modelClient.embedTexts({
+      texts: [buildRagQuestionQuery(parsedInput)],
+    });
+    const queryEmbedding = embeddingResponse.embeddings[0];
+
+    if (!queryEmbedding?.length) {
+      throw new Error("RAG query embedding was not returned");
+    }
+
+    const ragContext = await this.repository.findRelevantDocumentChunks({
+      userId: input.userId,
+      queryEmbedding,
+      documentType: parsedInput.documentType,
+      topK: parsedInput.topK,
+    });
+
+    if (ragContext.length === 0) {
+      throw new Error("No RAG document chunks found for this user");
+    }
+
+    const promptVersion = await this.repository.upsertPromptVersion({
+      name: `rag_generate_questions:${parsedInput.domainSlug}`,
+      version: "v1",
+      template: ragGenerateQuestionsPromptTemplate(),
+      outputSchema: GenerateQuestionsOutputSchema.toJSONSchema() as Record<string, unknown>,
+    });
+    const response = await this.modelClient.generateQuestions({
+      input: parsedInput,
+      ragContext,
+      promptVersion,
+    });
+    const output = GenerateQuestionsOutputSchema.parse(response.output);
+    const tokenUsage = embeddingResponse.tokenUsage + response.tokenUsage;
+    const questions = await this.repository.createGeneratedQuestions({
+      userId: input.userId,
+      questions: output.questions,
+      model: response.model,
+      promptVersionId: promptVersion.id,
+      tokenUsage,
+    });
+
+    return {
+      output: {
+        questions,
+        sources: ragContext.map((chunk) => ({
+          chunkId: chunk.id,
+          documentId: chunk.documentId,
+          documentType: chunk.documentType,
+          documentTitle: chunk.documentTitle,
+          chunkIndex: chunk.chunkIndex,
+          score: chunk.score,
+        })),
+      },
+      model: response.model,
+      promptVersionId: promptVersion.id,
+      tokenUsage,
+    };
+  }
+}
+
+function buildRagQuestionQuery(input: z.infer<typeof RagGenerateQuestionsInputSchema>) {
+  return [input.domainSlug, input.categorySlug, input.difficulty, input.focus].filter(Boolean).join(" ");
 }
 
 function generateQuestionsPromptTemplate() {
@@ -500,5 +592,14 @@ function generateFollowupPromptTemplate() {
     "你是一个技术面试复习系统的追问生成器。",
     "根据题目、参考答案、用户回答、评分反馈和缺失要点，生成能模拟真实技术面试的后续追问。",
     "追问必须聚焦用户回答中的薄弱点、项目表达和排查思路，不要生成闲聊内容。",
+  ].join("\n");
+}
+
+function ragGenerateQuestionsPromptTemplate() {
+  return [
+    "你是一个技术面试复习系统的 RAG 个性化题目生成器。",
+    "后端已经按 user_id 检索并筛选了简历、JD、项目笔记或学习笔记片段，你只能使用给定 ragContext 作为个性化依据。",
+    "围绕候选人的真实经历和目标岗位生成可主动练习的 Java 后端面试题，并严格返回结构化 JSON。",
+    "不要复述长文档原文，不要暴露无关隐私，只生成问题本身。",
   ].join("\n");
 }

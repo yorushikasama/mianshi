@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import { PrismaAiGenerationRepository } from "./prisma-ai-generation.repository";
 
 describe("PrismaAiGenerationRepository", () => {
@@ -635,6 +636,97 @@ describe("PrismaAiGenerationRepository", () => {
           endChar: 14,
         },
         embedding: [0.3, 0.4],
+      },
+    ]);
+  });
+
+  it("finds relevant document chunks only through source documents owned by the current user", async () => {
+    const prisma = {
+      documentChunk: {
+        findMany: vi.fn(async () => [
+          {
+            id: "chunk_1",
+            documentId: "doc_1",
+            chunkIndex: 0,
+            content: "订单系统使用 Redis 缓存热点商品和订单摘要。",
+            metadata: {
+              documentId: "doc_1",
+              chunkIndex: 0,
+              startChar: 0,
+              endChar: 22,
+            },
+            embedding: [0.1, 0.2, 0.3],
+            document: {
+              id: "doc_1",
+              documentType: "resume",
+              title: "Java 后端简历",
+            },
+          },
+          {
+            id: "chunk_2",
+            documentId: "doc_2",
+            chunkIndex: 0,
+            content: "学习笔记：JVM GC Roots 和可达性分析。",
+            metadata: {
+              documentId: "doc_2",
+              chunkIndex: 0,
+              startChar: 0,
+              endChar: 24,
+            },
+            embedding: [0.9, 0.1, 0.1],
+            document: {
+              id: "doc_2",
+              documentType: "learning_note",
+              title: "JVM 笔记",
+            },
+          },
+        ]),
+      },
+    };
+    const repository = new PrismaAiGenerationRepository(prisma as never);
+
+    const chunks = await repository.findRelevantDocumentChunks({
+      userId: "user_1",
+      queryEmbedding: [0.1, 0.2, 0.31],
+      documentType: "resume",
+      topK: 1,
+    });
+
+    expect(prisma.documentChunk.findMany).toHaveBeenCalledWith({
+      where: {
+        document: {
+          userId: "user_1",
+          documentType: "resume",
+        },
+        embedding: {
+          not: Prisma.DbNull,
+        },
+      },
+      include: {
+        document: {
+          select: {
+            id: true,
+            documentType: true,
+            title: true,
+          },
+        },
+      },
+    });
+    expect(chunks).toEqual([
+      {
+        id: "chunk_1",
+        documentId: "doc_1",
+        documentType: "resume",
+        documentTitle: "Java 后端简历",
+        chunkIndex: 0,
+        content: "订单系统使用 Redis 缓存热点商品和订单摘要。",
+        metadata: {
+          documentId: "doc_1",
+          chunkIndex: 0,
+          startChar: 0,
+          endChar: 22,
+        },
+        score: expect.closeTo(0.999, 2),
       },
     ]);
   });

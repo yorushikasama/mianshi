@@ -10,6 +10,7 @@ import type {
   PersistedGeneratedQuestion,
   PromptVersionRecord,
   QuestionContext,
+  RelevantDocumentChunk,
   ScoringContext,
   SourceDocumentForEmbedding,
 } from "./ai-task.executor";
@@ -59,6 +60,20 @@ type PracticeAttemptWithFollowupRelations = {
       content: string;
       keyPoints: unknown;
     }[];
+  };
+};
+
+type DocumentChunkWithDocumentRelations = {
+  id: string;
+  documentId: string;
+  chunkIndex: number;
+  content: string;
+  metadata: unknown;
+  embedding: unknown;
+  document: {
+    id: string;
+    documentType: DocumentType;
+    title: string;
   };
 };
 
@@ -434,6 +449,35 @@ export class PrismaAiGenerationRepository implements AiGenerationRepository {
       return chunks;
     });
   }
+
+  async findRelevantDocumentChunks(input: Parameters<AiGenerationRepository["findRelevantDocumentChunks"]>[0]) {
+    const chunks = await this.prisma.documentChunk.findMany({
+      where: {
+        document: {
+          userId: input.userId,
+          ...(input.documentType ? { documentType: input.documentType } : {}),
+        },
+        embedding: {
+          not: Prisma.DbNull,
+        },
+      },
+      include: {
+        document: {
+          select: {
+            id: true,
+            documentType: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    return (chunks as DocumentChunkWithDocumentRelations[])
+      .map((chunk) => toRelevantDocumentChunk(chunk, input.queryEmbedding))
+      .filter((chunk): chunk is RelevantDocumentChunk => Boolean(chunk))
+      .sort((left, right) => right.score - left.score)
+      .slice(0, input.topK);
+  }
 }
 
 const questionContextRelations = {
@@ -533,6 +577,48 @@ function toPersistedDocumentChunk(chunk: {
     metadata: asRagChunkMetadata(chunk.metadata),
     embedding: asNumberArray(chunk.embedding),
   };
+}
+
+function toRelevantDocumentChunk(
+  chunk: DocumentChunkWithDocumentRelations,
+  queryEmbedding: number[],
+): RelevantDocumentChunk | null {
+  const embedding = asNumberArray(chunk.embedding);
+
+  if (embedding.length === 0 || embedding.length !== queryEmbedding.length) {
+    return null;
+  }
+
+  return {
+    id: chunk.id,
+    documentId: chunk.documentId,
+    documentType: chunk.document.documentType,
+    documentTitle: chunk.document.title,
+    chunkIndex: chunk.chunkIndex,
+    content: chunk.content,
+    metadata: asRagChunkMetadata(chunk.metadata),
+    score: cosineSimilarity(queryEmbedding, embedding),
+  };
+}
+
+function cosineSimilarity(left: number[], right: number[]) {
+  let dot = 0;
+  let leftMagnitude = 0;
+  let rightMagnitude = 0;
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftValue = left[index] ?? 0;
+    const rightValue = right[index] ?? 0;
+    dot += leftValue * rightValue;
+    leftMagnitude += leftValue ** 2;
+    rightMagnitude += rightValue ** 2;
+  }
+
+  if (leftMagnitude === 0 || rightMagnitude === 0) {
+    return 0;
+  }
+
+  return dot / (Math.sqrt(leftMagnitude) * Math.sqrt(rightMagnitude));
 }
 
 function toPrismaJson(input: unknown): Prisma.InputJsonValue {

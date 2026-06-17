@@ -13,6 +13,7 @@ import type {
   FollowupContext,
   PromptVersionRecord,
   QuestionContext,
+  RelevantDocumentChunk,
 } from "./ai-task.executor";
 
 type RuntimeEnv = {
@@ -74,6 +75,7 @@ export class OpenAiStructuredOutputClient implements AiModelClient {
       focus?: string;
     };
     promptVersion: PromptVersionRecord;
+    ragContext?: RelevantDocumentChunk[];
   }): Promise<AiModelClientResult> {
     const completion = await this.client.chat.completions.parse({
       model: this.config.model,
@@ -89,6 +91,7 @@ export class OpenAiStructuredOutputClient implements AiModelClient {
                 version: input.promptVersion.version,
               },
               input: input.input,
+              ragContext: input.ragContext,
             },
             null,
             2,
