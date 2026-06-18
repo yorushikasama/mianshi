@@ -1,6 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { z } from "zod";
-import type { DifficultyLevel, QuestionType, SourceType } from "@mianshi/shared";
+import type { Answer, DifficultyLevel, QuestionType, SourceType } from "@mianshi/shared";
 import { difficultyLevels, questionTypes } from "@mianshi/shared";
 
 const PaginationSchema = z.object({
@@ -57,6 +57,7 @@ export interface QuestionRepository {
     pageSize: number;
   }): Promise<{ items: QuestionRecord[]; total: number }>;
   findQuestionById(questionId: string): Promise<QuestionRecord | null>;
+  findLatestAnswerByQuestionId(questionId: string): Promise<Answer | null>;
   createQuestion(input: Omit<QuestionRecord, "id" | "createdAt" | "updatedAt">): Promise<QuestionRecord>;
   updateQuestion(
     questionId: string,
@@ -101,6 +102,22 @@ export class QuestionService {
     }
 
     return question;
+  }
+
+  async getQuestionAnswer(userId: string, questionId: string) {
+    const question = await this.findVisibleQuestion(userId, questionId);
+
+    if (!question) {
+      throw new Error("Question not found");
+    }
+
+    const answer = await this.questionRepository.findLatestAnswerByQuestionId(questionId);
+
+    if (!answer) {
+      throw new Error("Answer not found");
+    }
+
+    return answer;
   }
 
   async createQuestion(userId: string, input: unknown) {

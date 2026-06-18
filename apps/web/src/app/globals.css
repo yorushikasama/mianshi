@@ -1206,7 +1206,8 @@ a:focus-visible {
 .auth-tabs button,
 .auth-submit,
 .auth-secondary,
-.practice-auth-callout a {
+.practice-auth-callout a,
+.practice-auth-callout button {
   min-height: 44px;
   border: 1px solid rgba(181, 223, 225, 0.18);
   border-radius: 8px;
@@ -1220,7 +1221,8 @@ a:focus-visible {
 .auth-tabs button,
 .auth-submit,
 .auth-secondary,
-.practice-auth-callout a {
+.practice-auth-callout a,
+.practice-auth-callout button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1303,12 +1305,18 @@ a:focus-visible {
   font-size: 14px;
 }
 
-.practice-auth-callout a {
+.practice-auth-callout a,
+.practice-auth-callout button {
   min-width: 116px;
   padding: 0 14px;
   background: var(--ink);
   color: var(--paper-strong);
   text-decoration: none;
+}
+
+.practice-auth-callout button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .document-page {
@@ -1907,7 +1915,8 @@ a:focus-visible {
   .task-button,
   .dashboard-callout a,
   .practice-actions button,
-  .practice-auth-callout a {
+  .practice-auth-callout a,
+  .practice-auth-callout button {
     width: 100%;
     justify-content: center;
   }

@@ -3,6 +3,7 @@ import {
   ApiError,
   buildAiJobsPath,
   buildApiUrl,
+  buildGenerateAnswerJobInput,
   buildPracticeAttemptsPath,
   buildQuestionsPath,
   buildRagQuestionJobInput,
@@ -13,6 +14,7 @@ import {
   createSourceDocument,
   fetchAiJobs,
   fetchQuestion,
+  fetchQuestionAnswer,
   fetchQuestions,
   fetchSourceDocuments,
   fetchReviewOverview,
@@ -200,6 +202,35 @@ describe("web API client helpers", () => {
     );
   });
 
+  it("fetches a protected question answer by id with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        id: "a_ai_1",
+        questionId: "q_ai_1",
+        answerType: "standard",
+        status: "draft",
+        content: "标准答案",
+        keyPoints: ["关键点"],
+        model: "test-model",
+        promptVersion: "v1",
+        tokenUsage: 0,
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchQuestionAnswer("q_ai/1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/questions/q_ai%2F1/answer",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
   it("creates protected AI jobs with the current access token", async () => {
     setAccessToken("access-token");
     const fetchMock = vi.fn(async () =>
@@ -331,6 +362,12 @@ describe("web API client helpers", () => {
       focus: "订单系统缓存一致性",
       count: 3,
       topK: 5,
+    });
+  });
+
+  it("builds answer generation job inputs from a question id", () => {
+    expect(buildGenerateAnswerJobInput("q_ai/1")).toEqual({
+      questionId: "q_ai/1",
     });
   });
 

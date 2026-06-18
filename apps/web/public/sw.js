@@ -23,8 +23,11 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        if (shouldCacheRequest(event.request, response)) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+
         return response;
       })
       .catch(async () => {
@@ -33,3 +36,17 @@ self.addEventListener("fetch", (event) => {
       }),
   );
 });
+
+function shouldCacheRequest(request, response) {
+  const { origin, pathname } = new URL(request.url);
+
+  if (!response.ok || origin !== self.location.origin) {
+    return false;
+  }
+
+  if (pathname.startsWith("/api/") || request.headers.has("authorization")) {
+    return false;
+  }
+
+  return APP_SHELL.includes(pathname) || pathname.startsWith("/_next/static/") || pathname.startsWith("/assets/");
+}

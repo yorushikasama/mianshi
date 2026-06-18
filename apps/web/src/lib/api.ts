@@ -150,6 +150,12 @@ export async function fetchQuestion(questionId: string) {
   });
 }
 
+export async function fetchQuestionAnswer(questionId: string) {
+  return request<Answer>(`/questions/${encodeURIComponent(questionId)}/answer`, {
+    auth: true,
+  });
+}
+
 export async function submitPracticeAttempt(input: PracticeAttemptInput) {
   return request<PracticeAttemptResult>("/practice/attempts", {
     method: "POST",
@@ -249,6 +255,10 @@ export function buildRagQuestionJobInput(input: {
     count: Number(input.count),
     topK: Number(input.topK),
   };
+}
+
+export function buildGenerateAnswerJobInput(questionId: string) {
+  return { questionId };
 }
 
 export function buildSourceDocumentsPath(input?: SourceDocumentListQuery) {

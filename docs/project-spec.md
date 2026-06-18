@@ -175,6 +175,7 @@ Redis + BullMQ 负责以下任务：
 功能：
 
 - 为题目生成答案
+- 查询当前用户可见题目的最新答案
 - 保存多个答案版本
 - 支持标准答案、简洁答案、面试口语答案、深入答案
 - 记录生成模型和 Prompt 版本
@@ -489,6 +490,7 @@ GET    /me
 GET    /questions
 POST   /questions
 GET    /questions/:id
+GET    /questions/:id/answer
 PATCH  /questions/:id
 DELETE /questions/:id
 
@@ -601,6 +603,7 @@ RAG 个性化题目生成使用 `POST /ai/jobs`：
 
 - 不在前端暴露 AI API key
 - 不在日志中记录密码、token、完整简历等敏感信息
+- PWA Service Worker 只缓存静态应用壳和公开静态资源，不缓存 API、授权请求、简历、JD、练习回答或 AI 生成的用户数据
 - 上传文件大小需要限制
 - 所有用户数据按 user_id 隔离
 - 生产环境 CORS 必须配置白名单

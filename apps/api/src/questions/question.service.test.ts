@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DifficultyLevel, Question, QuestionType, SourceType } from "@mianshi/shared";
+import type { Answer, DifficultyLevel, Question, QuestionType, SourceType } from "@mianshi/shared";
 import { QuestionService, type QuestionRepository, type QuestionRecord } from "./question.service";
 
 class FakeQuestionRepository implements QuestionRepository {
@@ -29,6 +29,26 @@ class FakeQuestionRepository implements QuestionRepository {
       sourceType: "manual",
     }),
   ];
+  readonly answers: Answer[] = [
+    createAnswerRecord({
+      id: "a_old",
+      questionId: "q_user_owned",
+      content: "旧答案",
+      keyPoints: ["旧关键点"],
+    }),
+    createAnswerRecord({
+      id: "a_new",
+      questionId: "q_user_owned",
+      content: "Spring Boot 会通过自动配置类和条件装配推断需要创建的 Bean。",
+      keyPoints: ["自动配置类", "条件装配", "Bean"],
+    }),
+    createAnswerRecord({
+      id: "a_other",
+      questionId: "q_other_user",
+      content: "其他用户答案",
+      keyPoints: ["隔离"],
+    }),
+  ];
 
   async listQuestions(input: { userId: string; domainSlug?: string; categorySlug?: string; page: number; pageSize: number }) {
     const visible = this.questions.filter((question) => {
@@ -46,6 +66,10 @@ class FakeQuestionRepository implements QuestionRepository {
 
   async findQuestionById(questionId: string) {
     return this.questions.find((question) => question.id === questionId) ?? null;
+  }
+
+  async findLatestAnswerByQuestionId(questionId: string) {
+    return this.answers.filter((answer) => answer.questionId === questionId).at(-1) ?? null;
   }
 
   async createQuestion(input: Omit<QuestionRecord, "id" | "createdAt" | "updatedAt">) {
@@ -76,6 +100,20 @@ class FakeQuestionRepository implements QuestionRepository {
     this.questions.splice(index, 1);
     return true;
   }
+}
+
+function createAnswerRecord(input: { id: string; questionId: string; content: string; keyPoints: string[] }): Answer {
+  return {
+    id: input.id,
+    questionId: input.questionId,
+    answerType: "standard",
+    status: "draft",
+    content: input.content,
+    keyPoints: input.keyPoints,
+    model: "test-model",
+    promptVersion: "test",
+    tokenUsage: 0,
+  };
 }
 
 function createQuestionRecord(input: {
@@ -158,6 +196,21 @@ describe("QuestionService", () => {
     await expect(() => service.updateQuestion("user_1", "q_other_user", { title: "改别人题" })).rejects.toThrow(
       "Question not found",
     );
+  });
+
+  it("returns the latest answer for a question visible to the current user", async () => {
+    const { service } = createService();
+
+    const answer = await service.getQuestionAnswer("user_1", "q_user_owned");
+
+    expect(answer.id).toBe("a_new");
+    expect(answer.keyPoints).toEqual(["自动配置类", "条件装配", "Bean"]);
+  });
+
+  it("does not return answers for another user's question", async () => {
+    const { service } = createService();
+
+    await expect(() => service.getQuestionAnswer("user_1", "q_other_user")).rejects.toThrow("Question not found");
   });
 
   it("deletes only questions owned by the current user", async () => {

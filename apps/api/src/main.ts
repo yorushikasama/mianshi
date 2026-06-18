@@ -5,6 +5,9 @@ import { config as loadEnv } from "dotenv";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
+import { validateApiEnvironment } from "./config/environment";
+import { ApiExceptionFilter } from "./http/api-exception.filter";
+import { requestContextMiddleware } from "./http/request-context.middleware";
 
 for (const envPath of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.env")]) {
   if (existsSync(envPath)) {
@@ -13,11 +16,13 @@ for (const envPath of [resolve(process.cwd(), ".env"), resolve(process.cwd(), ".
 }
 
 async function bootstrap() {
+  const runtimeConfig = validateApiEnvironment();
   const app = await NestFactory.create(AppModule);
-  const allowedOrigin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
 
+  app.use(requestContextMiddleware);
+  app.useGlobalFilters(new ApiExceptionFilter());
   app.enableCors({
-    origin: allowedOrigin,
+    origin: runtimeConfig.webOrigin,
     credentials: true,
   });
 
@@ -29,8 +34,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("docs", app, document);
 
-  const port = Number(process.env.PORT ?? 3001);
-  await app.listen(port);
+  await app.listen(runtimeConfig.port);
 }
 
 void bootstrap();

@@ -82,6 +82,31 @@ export class PrismaQuestionRepository implements QuestionRepository, PracticeQue
     return question ? toQuestionRecord(question) : null;
   }
 
+  async findLatestAnswerByQuestionId(questionId: string) {
+    const answer = await this.prisma.answer.findFirst({
+      where: { questionId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        questionId: true,
+        answerType: true,
+        status: true,
+        content: true,
+        keyPoints: true,
+        model: true,
+        promptVersionId: true,
+        promptVersion: {
+          select: {
+            version: true,
+          },
+        },
+        tokenUsage: true,
+      },
+    });
+
+    return answer ? toAnswer(answer) : null;
+  }
+
   async findPracticeQuestion(input: { userId: string; questionId: string }) {
     const question = await this.prisma.question.findFirst({
       where: {

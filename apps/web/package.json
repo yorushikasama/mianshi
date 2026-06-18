@@ -9,7 +9,7 @@
     "start": "next start",
     "pretest": "npm run build -w @mianshi/shared",
     "test": "vitest run --pool=threads --maxWorkers=1 --no-fileParallelism",
-    "lint": "next lint"
+    "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@mianshi/shared": "0.1.0",

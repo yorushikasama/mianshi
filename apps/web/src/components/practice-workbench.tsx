@@ -1,12 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { Answer, PracticeAttemptResult, PracticeReviewState, Question } from "@mianshi/shared";
-import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Gauge, LogIn, RotateCcw, Send } from "lucide-react";
+import type { AiJob, Answer, PracticeAttemptResult, PracticeReviewState, Question } from "@mianshi/shared";
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Gauge, Loader2, LogIn, RotateCcw, Send } from "lucide-react";
 import { useAuth } from "./auth-provider";
 import {
   ApiError,
+  buildGenerateAnswerJobInput,
+  createAiJob,
   fetchQuestion,
+  fetchQuestionAnswer,
   fetchPracticeAttempts,
   fetchPracticeReviewState,
   fetchJavaBackendAnswer,
@@ -26,8 +29,10 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
   const [reviewState, setReviewState] = useState<PracticeReviewState | null>(null);
   const [submittedAnswer, setSubmittedAnswer] = useState("");
   const [result, setResult] = useState<PracticeAttemptResult | null>(null);
+  const [answerJob, setAnswerJob] = useState<AiJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [generatingAnswer, setGeneratingAnswer] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +41,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
     async function loadQuestion() {
       setLoading(true);
       setError(null);
+      setAnswerJob(null);
 
       try {
         const [loadedQuestion, loadedAnswer] = await Promise.all([
@@ -124,6 +130,28 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
     }
   }
 
+  async function handleGenerateAnswer() {
+    if (!isAuthenticated) {
+      setError("请先登录，再生成答案。");
+      return;
+    }
+
+    setGeneratingAnswer(true);
+    setError(null);
+
+    try {
+      const job = await createAiJob({
+        type: "generate_answer",
+        input: buildGenerateAnswerJobInput(questionId),
+      });
+      setAnswerJob(job);
+    } catch (generateError) {
+      setError(toErrorMessage(generateError));
+    } finally {
+      setGeneratingAnswer(false);
+    }
+  }
+
   if (loading) {
     return (
       <main className="practice-page">
@@ -173,9 +201,16 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
           <BookOpen size={20} />
           <div>
             <strong>这道题还没有答案版本</strong>
-            <span>先通过 AI job 生成答案，再提交评分。题目内容仍可用于自测和准备口头回答。</span>
+            <span>
+              {answerJob
+                ? `答案生成任务已入队：${answerJob.status}。稍后刷新题目即可练习评分。`
+                : "先通过 AI job 生成答案，再提交评分。题目内容仍可用于自测和准备口头回答。"}
+            </span>
           </div>
-          <a href="/documents">去资料库</a>
+          <button type="button" disabled={generatingAnswer || Boolean(answerJob)} onClick={handleGenerateAnswer}>
+            {generatingAnswer ? <Loader2 className="spin-icon" size={17} /> : <BookOpen size={17} />}
+            {answerJob ? "已入队" : generatingAnswer ? "生成中" : "生成答案"}
+          </button>
         </div>
       ) : null}
 
@@ -336,9 +371,13 @@ async function loadVisibleAnswer(questionId: string, isAuthenticated: boolean) {
   }
 
   try {
-    return await fetchJavaBackendAnswer(questionId);
+    return await fetchQuestionAnswer(questionId);
   } catch {
-    return null;
+    try {
+      return await fetchJavaBackendAnswer(questionId);
+    } catch {
+      return null;
+    }
   }
 }
 

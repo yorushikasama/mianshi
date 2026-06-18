@@ -37,6 +37,15 @@ export class QuestionController {
     }
   }
 
+  @Get(":questionId/answer")
+  async getQuestionAnswer(@Req() request: AuthenticatedRequest, @Param("questionId") questionId: string) {
+    try {
+      return await this.questionService.getQuestionAnswer(getCurrentUserId(request), questionId);
+    } catch (error) {
+      throw mapQuestionError(error);
+    }
+  }
+
   @Post()
   async createQuestion(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
     try {
