@@ -7,6 +7,7 @@ interface RuntimeEnv {
   WEB_ORIGIN?: string;
   PORT?: string;
   NODE_ENV?: string;
+  AI_DAILY_JOB_LIMIT?: string;
 }
 
 const requiredKeys = [
@@ -34,6 +35,8 @@ export function validateApiEnvironment(env: RuntimeEnv = process.env) {
     throw new Error("PORT must be a positive integer.");
   }
 
+  requireOptionalNonnegativeInteger(env.AI_DAILY_JOB_LIMIT, "AI_DAILY_JOB_LIMIT");
+
   return {
     webOrigin: webOrigin || "http://localhost:3000",
     port,
@@ -48,4 +51,16 @@ function requireTrimmed(env: RuntimeEnv, key: (typeof requiredKeys)[number]) {
   }
 
   return value;
+}
+
+function requireOptionalNonnegativeInteger(value: string | undefined, key: string) {
+  if (value === undefined || value.trim() === "") {
+    return;
+  }
+
+  const parsed = Number(value.trim());
+
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${key} must be a nonnegative integer.`);
+  }
 }

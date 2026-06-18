@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { AiJob, AiJobStatus, AiJobType } from "@mianshi/shared";
 import {
   AiJobService,
@@ -63,6 +63,11 @@ class FakeAiJobRepository implements AiJobRepository {
       total: visible.length,
     };
   }
+
+  async countJobsCreatedSince(input: { userId: string; since: Date }) {
+    void input.since;
+    return this.jobs.filter((job) => job.userId === input.userId).length;
+  }
 }
 
 class FakeAiTaskQueue implements AiTaskQueue {
@@ -90,6 +95,16 @@ function createService(queueMode: "success" | "failure" = "success") {
 }
 
 describe("AiJobService", () => {
+  const originalDailyLimit = process.env.AI_DAILY_JOB_LIMIT;
+
+  afterEach(() => {
+    if (originalDailyLimit === undefined) {
+      delete process.env.AI_DAILY_JOB_LIMIT;
+    } else {
+      process.env.AI_DAILY_JOB_LIMIT = originalDailyLimit;
+    }
+  });
+
   it("creates a pending job and enqueues it for async processing", async () => {
     const { queue, service } = createService();
 
@@ -119,6 +134,20 @@ describe("AiJobService", () => {
 
     expect(job.status).toBe("failed");
     expect(job.error).toBe("Redis unavailable");
+  });
+
+  it("rejects new jobs after the user reaches the configured daily limit", async () => {
+    process.env.AI_DAILY_JOB_LIMIT = "1";
+    const { queue, repository, service } = createService();
+
+    await service.createJob("user_1", { type: "generate_questions", input: { count: 2 } });
+
+    await expect(() =>
+      service.createJob("user_1", { type: "generate_answer", input: { questionId: "q_1" } }),
+    ).rejects.toThrow("Daily AI job limit reached");
+
+    expect(repository.jobs).toHaveLength(1);
+    expect(queue.enqueuedJobIds).toEqual(["job_1"]);
   });
 
   it("lists only the current user's jobs with pagination metadata", async () => {

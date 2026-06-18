@@ -88,6 +88,17 @@ export class PrismaAiJobRepository implements AiJobRepository, AiJobStateReposit
     };
   }
 
+  async countJobsCreatedSince(input: { userId: string; since: Date }) {
+    return this.prisma.aiJob.count({
+      where: {
+        userId: input.userId,
+        createdAt: {
+          gte: input.since,
+        },
+      },
+    });
+  }
+
   async markRunning(jobId: string) {
     await this.prisma.aiJob.update({
       where: { id: jobId },

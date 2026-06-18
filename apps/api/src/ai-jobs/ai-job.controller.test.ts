@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ForbiddenException } from "@nestjs/common";
 import { AiJobController } from "./ai-job.controller";
 
 describe("AiJobController", () => {
@@ -46,5 +47,23 @@ describe("AiJobController", () => {
         status: "pending",
       },
     });
+  });
+
+  it("maps daily AI job limit errors to forbidden responses", async () => {
+    const service = {
+      createJob: async () => {
+        throw new Error("Daily AI job limit reached");
+      },
+      listJobs: async () => ({ items: [], total: 0 }),
+      getJob: async () => ({}),
+    };
+    const controller = new AiJobController(service as never);
+
+    await expect(() =>
+      controller.createJob({ user: { id: "user_1" } } as never, {
+        type: "generate_questions",
+        input: {},
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

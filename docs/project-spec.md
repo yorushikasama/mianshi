@@ -615,7 +615,7 @@ RAG 个性化题目生成使用 `POST /ai/jobs`：
 - 支持在 `output.aiCostEstimate` 记录基于 `AI_COST_USD_PER_1K_TOKENS` 的成本估算
 - 支持 Prompt 版本管理
 - 支持失败重试上限
-- 支持限制单用户每日 AI 任务数量
+- 支持通过 `AI_DAILY_JOB_LIMIT` 限制单用户每日 AI 任务数量
 
 ### 10.4 可观测性
 

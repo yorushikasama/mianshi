@@ -35,4 +35,17 @@ describe("validateApiEnvironment", () => {
       port: 3005,
     });
   });
+
+  it("rejects invalid optional daily AI job limits", () => {
+    expect(() =>
+      validateApiEnvironment({
+        DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/mianshi?schema=public",
+        JWT_ACCESS_SECRET: "access-secret",
+        JWT_REFRESH_SECRET: "refresh-secret",
+        REDIS_URL: "redis://localhost:6379",
+        OPENAI_API_KEY: "test-key",
+        AI_DAILY_JOB_LIMIT: "many",
+      }),
+    ).toThrow("AI_DAILY_JOB_LIMIT must be a nonnegative integer.");
+  });
 });

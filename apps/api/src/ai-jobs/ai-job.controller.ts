@@ -69,5 +69,9 @@ function mapAiJobError(error: unknown) {
     return new NotFoundException(error.message);
   }
 
+  if (error instanceof Error && error.message === "Daily AI job limit reached") {
+    return new ForbiddenException(error.message);
+  }
+
   return error;
 }

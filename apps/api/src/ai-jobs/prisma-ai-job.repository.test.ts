@@ -96,6 +96,31 @@ describe("PrismaAiJobRepository", () => {
     expect(result.items[0]?.id).toBe("job_1");
   });
 
+  it("counts jobs created by a user since a timestamp", async () => {
+    const prisma = {
+      aiJob: {
+        count: vi.fn(async () => 3),
+      },
+    };
+    const repository = new PrismaAiJobRepository(prisma as never);
+    const since = new Date("2026-06-18T00:00:00.000Z");
+
+    const count = await repository.countJobsCreatedSince({
+      userId: "user_1",
+      since,
+    });
+
+    expect(prisma.aiJob.count).toHaveBeenCalledWith({
+      where: {
+        userId: "user_1",
+        createdAt: {
+          gte: since,
+        },
+      },
+    });
+    expect(count).toBe(3);
+  });
+
   it("marks jobs succeeded with structured output and AI trace metadata", async () => {
     const prisma = {
       aiJob: {

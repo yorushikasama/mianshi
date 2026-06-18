@@ -92,9 +92,11 @@ OPENAI_API_KEY="replace-me"
 OPENAI_MODEL="gpt-5.5"
 OPENAI_EMBEDDING_MODEL="text-embedding-3-small"
 AI_COST_USD_PER_1K_TOKENS="0"
+AI_DAILY_JOB_LIMIT="0"
 ```
 
 `AI_COST_USD_PER_1K_TOKENS` 是可选的混合估算单价；设置为大于 0 后，AI job 成功时会在 `output.aiCostEstimate` 记录估算成本。
+`AI_DAILY_JOB_LIMIT` 为 0 表示不限制；设置为正整数后，会按用户限制当天可创建的 AI job 数量。
 
 初始化数据库结构和第一版 Java 题库数据：
 

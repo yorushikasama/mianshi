@@ -36,6 +36,7 @@ export interface AiJobRepository {
     page: number;
     pageSize: number;
   }): Promise<{ items: AiJob[]; total: number }>;
+  countJobsCreatedSince(input: { userId: string; since: Date }): Promise<number>;
 }
 
 export interface AiTaskQueue {
@@ -53,6 +54,8 @@ export class AiJobService {
 
   async createJob(userId: string, input: unknown): Promise<AiJob> {
     const parsedInput = CreateAiJobInputSchema.parse(input);
+    await this.assertDailyLimit(userId);
+
     const job = await this.aiJobRepository.createJob({
       userId,
       type: parsedInput.type,
@@ -106,6 +109,27 @@ export class AiJobService {
 
     return job;
   }
+
+  private async assertDailyLimit(userId: string) {
+    const dailyLimit = Number(process.env.AI_DAILY_JOB_LIMIT);
+
+    if (!Number.isFinite(dailyLimit) || dailyLimit <= 0) {
+      return;
+    }
+
+    const usedToday = await this.aiJobRepository.countJobsCreatedSince({
+      userId,
+      since: startOfUtcDay(new Date()),
+    });
+
+    if (usedToday >= dailyLimit) {
+      throw new Error("Daily AI job limit reached");
+    }
+  }
+}
+
+function startOfUtcDay(now: Date) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
 function hashJobInput(type: AiJobType, input: Record<string, unknown>) {
