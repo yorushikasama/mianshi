@@ -156,6 +156,20 @@ describe("ReviewService", () => {
     expect(overview.recentAttempts.map((attempt) => attempt.attemptId)).toEqual(["attempt_other_user"]);
     expect(overview.weakCategories.map((category) => category.categorySlug)).toEqual(["mysql"]);
   });
+
+  it("returns the current user's due review queue", async () => {
+    const service = createService();
+
+    const today = await service.getToday("user_1", {
+      now: new Date("2026-06-11T09:30:00.000Z"),
+      limit: 1,
+    });
+
+    expect(today.generatedAt).toBe("2026-06-11T09:30:00.000Z");
+    expect(today.overdueCount).toBe(1);
+    expect(today.dueTodayCount).toBe(1);
+    expect(today.items.map((item) => item.questionId)).toEqual(["q_jvm_gc_roots"]);
+  });
 });
 
 function createReviewState(input: {

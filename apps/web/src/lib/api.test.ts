@@ -9,6 +9,7 @@ import {
   buildQuestionsPath,
   buildRagQuestionJobInput,
   buildReviewOverviewPath,
+  buildReviewTodayPath,
   buildSourceDocumentsPath,
   cancelAiJob,
   clearAccessToken,
@@ -20,6 +21,7 @@ import {
   fetchQuestions,
   fetchSourceDocuments,
   fetchReviewOverview,
+  fetchReviewToday,
   fetchPracticeAttempts,
   getAccessToken,
   setAccessToken,
@@ -66,6 +68,10 @@ describe("web API client helpers", () => {
     expect(buildReviewOverviewPath({ dueLimit: 6, recentLimit: 4 })).toBe(
       "/review/overview?dueLimit=6&recentLimit=4",
     );
+  });
+
+  it("builds review today paths with optional queue limits", () => {
+    expect(buildReviewTodayPath({ limit: 6 })).toBe("/review/today?limit=6");
   });
 
   it("builds AI job list paths with optional status and pagination", () => {
@@ -116,6 +122,30 @@ describe("web API client helpers", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/review/overview?dueLimit=6&recentLimit=4",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("fetches today's protected review queue with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        generatedAt: "2026-06-11T00:00:00.000Z",
+        dueTodayCount: 0,
+        overdueCount: 0,
+        items: [],
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchReviewToday({ limit: 6 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/review/today?limit=6",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",

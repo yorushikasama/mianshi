@@ -14,6 +14,7 @@ import type {
   PracticeReviewState,
   Question,
   ReviewOverview,
+  ReviewToday,
 } from "@mianshi/shared";
 
 const defaultApiBaseUrl = "http://localhost:3001";
@@ -201,6 +202,20 @@ export function buildReviewOverviewPath(input?: { dueLimit?: number; recentLimit
 
 export async function fetchReviewOverview(input?: { dueLimit?: number; recentLimit?: number }) {
   return request<ReviewOverview>(buildReviewOverviewPath(input), {
+    auth: true,
+  });
+}
+
+export function buildReviewTodayPath(input?: { limit?: number }) {
+  if (!input?.limit) {
+    return "/review/today";
+  }
+
+  return `/review/today?limit=${encodeURIComponent(input.limit)}`;
+}
+
+export async function fetchReviewToday(input?: { limit?: number }) {
+  return request<ReviewToday>(buildReviewTodayPath(input), {
     auth: true,
   });
 }

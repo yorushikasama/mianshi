@@ -12,6 +12,11 @@ export class ReviewController {
   getOverview(@Req() request: AuthenticatedRequest, @Query() query: unknown) {
     return this.reviewService.getOverview(getCurrentUserId(request), query);
   }
+
+  @Get("today")
+  getToday(@Req() request: AuthenticatedRequest, @Query() query: unknown) {
+    return this.reviewService.getToday(getCurrentUserId(request), query);
+  }
 }
 
 function getCurrentUserId(request: AuthenticatedRequest) {

@@ -1,12 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { z } from "zod";
-import { ReviewOverviewSchema } from "@mianshi/shared";
-import type { DifficultyLevel, FsrsRatingName, QuestionType, ReviewOverview } from "@mianshi/shared";
+import { ReviewOverviewSchema, ReviewTodaySchema } from "@mianshi/shared";
+import type { DifficultyLevel, FsrsRatingName, QuestionType, ReviewOverview, ReviewToday } from "@mianshi/shared";
 
 const ReviewOverviewInputSchema = z.object({
   now: z.date().optional(),
   dueLimit: z.coerce.number().int().min(1).max(50).default(8),
   recentLimit: z.coerce.number().int().min(1).max(20).default(5),
+});
+
+const ReviewTodayInputSchema = z.object({
+  now: z.date().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(8),
 });
 
 export interface ReviewStateRecord {
@@ -103,6 +108,22 @@ export class ReviewService {
         createdAt: attempt.createdAt.toISOString(),
       })),
       weakCategories: buildWeakCategories(analyticsAttempts),
+    });
+  }
+
+  async getToday(userId: string, input: unknown = {}): Promise<ReviewToday> {
+    const parsedInput = ReviewTodayInputSchema.parse(input ?? {});
+    const overview = await this.getOverview(userId, {
+      now: parsedInput.now,
+      dueLimit: parsedInput.limit,
+      recentLimit: 1,
+    });
+
+    return ReviewTodaySchema.parse({
+      generatedAt: overview.generatedAt,
+      dueTodayCount: overview.dueTodayCount,
+      overdueCount: overview.overdueCount,
+      items: overview.dueItems,
     });
   }
 }

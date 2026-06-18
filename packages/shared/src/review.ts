@@ -52,11 +52,19 @@ export const ReviewOverviewSchema = z.object({
   weakCategories: z.array(ReviewWeakCategorySchema),
 });
 
+export const ReviewTodaySchema = z.object({
+  generatedAt: z.string().datetime(),
+  dueTodayCount: z.number().int().nonnegative(),
+  overdueCount: z.number().int().nonnegative(),
+  items: z.array(ReviewDueItemSchema),
+});
+
 export type ReviewItemStatus = (typeof reviewItemStatuses)[number];
 export type ReviewDueItem = z.infer<typeof ReviewDueItemSchema>;
 export type ReviewRecentAttempt = z.infer<typeof ReviewRecentAttemptSchema>;
 export type ReviewWeakCategory = z.infer<typeof ReviewWeakCategorySchema>;
 export type ReviewOverview = z.infer<typeof ReviewOverviewSchema>;
+export type ReviewToday = z.infer<typeof ReviewTodaySchema>;
 
 export interface ScoreToFsrsRatingInput {
   aiScore: number;
