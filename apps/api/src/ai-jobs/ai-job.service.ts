@@ -110,6 +110,19 @@ export class AiJobService {
     return job;
   }
 
+  async cancelJob(userId: string, jobId: string): Promise<AiJob> {
+    const job = await this.getJob(userId, jobId);
+
+    if (job.status !== "pending") {
+      throw new Error("AI job cannot be canceled");
+    }
+
+    return (await this.aiJobRepository.updateJob(job.id, {
+      status: "canceled",
+      error: null,
+    })) ?? job;
+  }
+
   private async assertDailyLimit(userId: string) {
     const dailyLimit = Number(process.env.AI_DAILY_JOB_LIMIT);
 

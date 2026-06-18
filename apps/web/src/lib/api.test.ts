@@ -10,6 +10,7 @@ import {
   buildRagQuestionJobInput,
   buildReviewOverviewPath,
   buildSourceDocumentsPath,
+  cancelAiJob,
   clearAccessToken,
   createAiJob,
   createSourceDocument,
@@ -272,6 +273,46 @@ describe("web API client helpers", () => {
           type: "generate_questions",
           input: { domainSlug: "java_backend" },
         }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("cancels protected AI jobs with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        id: "job_1",
+        userId: "user_1",
+        type: "generate_answer",
+        status: "canceled",
+        progress: 0,
+        input: { questionId: "q_1" },
+        output: null,
+        error: null,
+        retryCount: 0,
+        queueJobId: "job_1",
+        model: null,
+        promptVersionId: null,
+        tokenUsage: 0,
+        latencyMs: null,
+        inputHash: "hash_1",
+        startedAt: null,
+        completedAt: null,
+        createdAt: "2026-06-12T00:00:00.000Z",
+        updatedAt: "2026-06-12T00:00:00.000Z",
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await cancelAiJob("job/1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/ai/jobs/job%2F1/cancel",
+      expect.objectContaining({
+        method: "POST",
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",
         }),

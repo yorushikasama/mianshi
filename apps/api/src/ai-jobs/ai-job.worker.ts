@@ -36,6 +36,11 @@ export class AiJobWorker implements OnModuleInit, OnModuleDestroy {
     const startedAt = Date.now();
 
     try {
+      const currentJob = await this.repository.findJobById(job.data.jobId);
+      if (currentJob?.status === "canceled") {
+        return;
+      }
+
       await this.repository.markRunning(job.data.jobId);
       const result = await this.executor.execute(job.data);
       await this.repository.markSucceeded(job.data.jobId, {

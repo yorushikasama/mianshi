@@ -238,6 +238,13 @@ export async function createAiJob(input: CreateAiJobInput) {
   });
 }
 
+export async function cancelAiJob(jobId: string) {
+  return request<AiJob>(`/ai/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: "POST",
+    auth: true,
+  });
+}
+
 export function buildRagQuestionJobInput(input: {
   categorySlug: string;
   documentType?: DocumentType;

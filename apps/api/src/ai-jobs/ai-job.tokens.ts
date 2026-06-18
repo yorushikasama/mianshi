@@ -1,4 +1,4 @@
-import type { AiJobType } from "@mianshi/shared";
+import type { AiJob, AiJobType } from "@mianshi/shared";
 
 export const AI_JOB_REPOSITORY = Symbol("AI_JOB_REPOSITORY");
 export const AI_JOB_STATE_REPOSITORY = Symbol("AI_JOB_STATE_REPOSITORY");
@@ -26,6 +26,7 @@ export interface AiTaskExecutor {
 }
 
 export interface AiJobStateRepository {
+  findJobById(jobId: string): Promise<Pick<AiJob, "status"> | null>;
   markRunning(jobId: string): Promise<void>;
   markSucceeded(
     jobId: string,

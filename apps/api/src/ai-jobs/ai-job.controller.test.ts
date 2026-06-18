@@ -29,11 +29,27 @@ describe("AiJobController", () => {
     });
   });
 
+  it("uses the authenticated user id when canceling an AI job", async () => {
+    const service = {
+      createJob: async () => ({}),
+      listJobs: async () => ({ items: [], total: 0 }),
+      getJob: async () => ({}),
+      cancelJob: async (userId: string, jobId: string) => ({ userId, jobId }),
+    };
+    const controller = new AiJobController(service as never);
+
+    await expect(controller.cancelJob({ user: { id: "user_1" } } as never, "job_1")).resolves.toEqual({
+      userId: "user_1",
+      jobId: "job_1",
+    });
+  });
+
   it("uses the authenticated user id when listing AI jobs", async () => {
     const service = {
       createJob: async () => ({}),
       listJobs: async (userId: string, input: unknown) => ({ userId, input }),
       getJob: async () => ({}),
+      cancelJob: async () => ({}),
     };
     const controller = new AiJobController(service as never);
 
@@ -56,6 +72,7 @@ describe("AiJobController", () => {
       },
       listJobs: async () => ({ items: [], total: 0 }),
       getJob: async () => ({}),
+      cancelJob: async () => ({}),
     };
     const controller = new AiJobController(service as never);
 

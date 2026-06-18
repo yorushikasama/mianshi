@@ -168,6 +168,19 @@ describe("AiJobService", () => {
 
     await expect(() => service.getJob("user_2", job.id)).rejects.toThrow("AI job not found");
   });
+
+  it("cancels only the current user's pending job", async () => {
+    const { repository, service } = createService();
+    const job = await service.createJob("user_1", { type: "generate_answer", input: { questionId: "q_1" } });
+
+    const canceled = await service.cancelJob("user_1", job.id);
+
+    expect(canceled.status).toBe("canceled");
+    await expect(() => service.cancelJob("user_2", job.id)).rejects.toThrow("AI job not found");
+
+    repository.jobs[0].status = "running";
+    await expect(() => service.cancelJob("user_1", job.id)).rejects.toThrow("AI job cannot be canceled");
+  });
 });
 
 void AI_JOB_REPOSITORY;

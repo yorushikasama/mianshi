@@ -14,6 +14,7 @@ describe("AiJobWorker", () => {
 
   it("executes a dequeued job and records observable success metadata", async () => {
     const repository = {
+      findJobById: vi.fn(async () => ({ status: "pending" })),
       markRunning: vi.fn(async () => undefined),
       markSucceeded: vi.fn(async () => undefined),
       markFailed: vi.fn(async () => undefined),
@@ -69,6 +70,7 @@ describe("AiJobWorker", () => {
     process.env.AI_COST_USD_PER_1K_TOKENS = "0.01";
 
     const repository = {
+      findJobById: vi.fn(async () => ({ status: "pending" })),
       markRunning: vi.fn(async () => undefined),
       markSucceeded: vi.fn(async () => undefined),
       markFailed: vi.fn(async () => undefined),
@@ -115,6 +117,7 @@ describe("AiJobWorker", () => {
 
   it("marks a job failed with retry count when processing throws", async () => {
     const repository = {
+      findJobById: vi.fn(async () => ({ status: "pending" })),
       markRunning: vi.fn(async () => {
         throw new Error("database unavailable");
       }),
@@ -150,5 +153,40 @@ describe("AiJobWorker", () => {
       retryCount: 2,
       latencyMs: expect.any(Number),
     });
+  });
+
+  it("skips canceled jobs before execution", async () => {
+    const repository = {
+      findJobById: vi.fn(async () => ({ status: "canceled" })),
+      markRunning: vi.fn(async () => undefined),
+      markSucceeded: vi.fn(async () => undefined),
+      markFailed: vi.fn(async () => undefined),
+    };
+    const executor = {
+      execute: vi.fn(async () => ({
+        output: {},
+        model: "gpt-5.5",
+        promptVersionId: "prompt_1",
+        tokenUsage: 0,
+      })),
+    };
+    const worker = new AiJobWorker(repository as never, executor as never);
+
+    await worker.process({
+      data: {
+        jobId: "job_1",
+        userId: "user_1",
+        type: "generate_answer",
+        input: {
+          questionId: "q_1",
+        },
+      },
+      attemptsMade: 0,
+    } as never);
+
+    expect(repository.markRunning).not.toHaveBeenCalled();
+    expect(executor.execute).not.toHaveBeenCalled();
+    expect(repository.markSucceeded).not.toHaveBeenCalled();
+    expect(repository.markFailed).not.toHaveBeenCalled();
   });
 });

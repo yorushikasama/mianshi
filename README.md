@@ -153,6 +153,7 @@ GET  /review/overview
 POST /ai/jobs
 GET  /ai/jobs
 GET  /ai/jobs/:jobId
+POST /ai/jobs/:jobId/cancel
 
 POST /documents
 GET  /documents

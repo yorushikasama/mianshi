@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -47,6 +48,15 @@ export class AiJobController {
       throw mapAiJobError(error);
     }
   }
+
+  @Post(":jobId/cancel")
+  async cancelJob(@Req() request: AuthenticatedRequest, @Param("jobId") jobId: string) {
+    try {
+      return await this.aiJobService.cancelJob(getCurrentUserId(request), jobId);
+    } catch (error) {
+      throw mapAiJobError(error);
+    }
+  }
 }
 
 function getCurrentUserId(request: AuthenticatedRequest) {
@@ -71,6 +81,10 @@ function mapAiJobError(error: unknown) {
 
   if (error instanceof Error && error.message === "Daily AI job limit reached") {
     return new ForbiddenException(error.message);
+  }
+
+  if (error instanceof Error && error.message === "AI job cannot be canceled") {
+    return new ConflictException(error.message);
   }
 
   return error;
