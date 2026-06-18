@@ -612,6 +612,7 @@ RAG 个性化题目生成使用 `POST /ai/jobs`：
 
 - AI 生成结果必须缓存入库
 - 支持记录 token_usage
+- 支持在 `output.aiCostEstimate` 记录基于 `AI_COST_USD_PER_1K_TOKENS` 的成本估算
 - 支持 Prompt 版本管理
 - 支持失败重试上限
 - 支持限制单用户每日 AI 任务数量
@@ -620,7 +621,7 @@ RAG 个性化题目生成使用 `POST /ai/jobs`：
 
 - 每个请求带 request_id
 - 后端结构化日志
-- AI 调用记录模型、耗时、token、错误
+- AI 调用记录模型、耗时、token、成本估算、错误
 - Langfuse 记录 Prompt trace
 - BullMQ 任务失败需要可查看
 

@@ -40,6 +40,7 @@ export class AiJobWorker implements OnModuleInit, OnModuleDestroy {
       const result = await this.executor.execute(job.data);
       await this.repository.markSucceeded(job.data.jobId, {
         ...result,
+        output: withAiCostEstimate(result.output, result.tokenUsage),
         latencyMs: elapsedMs(startedAt),
       });
     } catch (error) {
@@ -63,4 +64,21 @@ function toErrorMessage(error: unknown) {
   }
 
   return "AI job worker failed";
+}
+
+function withAiCostEstimate(output: Record<string, unknown>, tokenUsage: number) {
+  const rateUsdPer1kTokens = Number(process.env.AI_COST_USD_PER_1K_TOKENS);
+
+  if (!Number.isFinite(rateUsdPer1kTokens) || rateUsdPer1kTokens <= 0) {
+    return output;
+  }
+
+  return {
+    ...output,
+    aiCostEstimate: {
+      amountUsd: Number(((tokenUsage / 1000) * rateUsdPer1kTokens).toFixed(6)),
+      rateUsdPer1kTokens,
+      tokenUsage,
+    },
+  };
 }
