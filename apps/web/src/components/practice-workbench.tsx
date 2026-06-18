@@ -7,6 +7,7 @@ import { useAuth } from "./auth-provider";
 import {
   ApiError,
   buildGenerateAnswerJobInput,
+  buildGenerateFollowupJobInput,
   createAiJob,
   fetchQuestion,
   fetchQuestionAnswer,
@@ -30,9 +31,11 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
   const [submittedAnswer, setSubmittedAnswer] = useState("");
   const [result, setResult] = useState<PracticeAttemptResult | null>(null);
   const [answerJob, setAnswerJob] = useState<AiJob | null>(null);
+  const [followupJob, setFollowupJob] = useState<AiJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [generatingAnswer, setGeneratingAnswer] = useState(false);
+  const [generatingFollowup, setGeneratingFollowup] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,6 +45,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
       setLoading(true);
       setError(null);
       setAnswerJob(null);
+      setFollowupJob(null);
 
       try {
         const [loadedQuestion, loadedAnswer] = await Promise.all([
@@ -110,6 +114,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
         submittedAnswer,
       });
       setResult(attempt);
+      setFollowupJob(null);
       setAttempts((currentAttempts) => {
         const nextAttempts = [attempt, ...currentAttempts];
         setReviewState({
@@ -149,6 +154,28 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
       setError(toErrorMessage(generateError));
     } finally {
       setGeneratingAnswer(false);
+    }
+  }
+
+  async function handleGenerateFollowup() {
+    if (!isAuthenticated || !result) {
+      setError("请先提交练习回答，再生成追问。");
+      return;
+    }
+
+    setGeneratingFollowup(true);
+    setError(null);
+
+    try {
+      const job = await createAiJob({
+        type: "generate_followup",
+        input: buildGenerateFollowupJobInput(result.id, 3),
+      });
+      setFollowupJob(job);
+    } catch (generateError) {
+      setError(toErrorMessage(generateError));
+    } finally {
+      setGeneratingFollowup(false);
     }
   }
 
@@ -255,6 +282,7 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
               onClick={() => {
                 setSubmittedAnswer("");
                 setResult(null);
+                setFollowupJob(null);
               }}
             >
               <RotateCcw size={17} />
@@ -309,6 +337,35 @@ export function PracticeWorkbench({ questionId }: PracticeWorkbenchProps) {
                 <span>FSRS: {result.rating}</span>
               </div>
               <p>{result.feedbackSummary}</p>
+
+              <div className="followup-card">
+                <div>
+                  <h2>面试追问</h2>
+                  <p>
+                    {followupJob
+                      ? `追问生成任务已入队：${followupJob.status}。稍后刷新即可查看更新后的追问。`
+                      : "基于这次回答和遗漏点，继续模拟面试官的后续追问。"}
+                  </p>
+                </div>
+                <button type="button" disabled={generatingFollowup || Boolean(followupJob)} onClick={handleGenerateFollowup}>
+                  {generatingFollowup ? <Loader2 className="spin-icon" size={16} /> : <BookOpen size={16} />}
+                  {followupJob ? "已入队" : generatingFollowup ? "生成中" : "生成追问"}
+                </button>
+              </div>
+
+              {result.followUpQuestions.length > 0 ? (
+                <>
+                  <h2>已有追问</h2>
+                  <ul>
+                    {result.followUpQuestions.map((question) => (
+                      <li key={question}>
+                        <AlertCircle size={16} />
+                        {question}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
 
               <h2>已覆盖</h2>
               <ul>

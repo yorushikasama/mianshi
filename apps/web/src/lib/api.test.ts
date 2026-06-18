@@ -4,6 +4,7 @@ import {
   buildAiJobsPath,
   buildApiUrl,
   buildGenerateAnswerJobInput,
+  buildGenerateFollowupJobInput,
   buildPracticeAttemptsPath,
   buildQuestionsPath,
   buildRagQuestionJobInput,
@@ -368,6 +369,13 @@ describe("web API client helpers", () => {
   it("builds answer generation job inputs from a question id", () => {
     expect(buildGenerateAnswerJobInput("q_ai/1")).toEqual({
       questionId: "q_ai/1",
+    });
+  });
+
+  it("builds follow-up generation job inputs from an attempt id", () => {
+    expect(buildGenerateFollowupJobInput("attempt/q_1", 2)).toEqual({
+      attemptId: "attempt/q_1",
+      count: 2,
     });
   });
 

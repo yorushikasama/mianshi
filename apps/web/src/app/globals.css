@@ -1129,6 +1129,44 @@ a:focus-visible {
   color: var(--ink-soft);
 }
 
+.followup-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(8, 127, 106, 0.16);
+  background: rgba(8, 127, 106, 0.07);
+}
+
+.followup-card h2 {
+  margin: 0;
+}
+
+.followup-card p {
+  margin-top: 6px;
+}
+
+.followup-card button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper-strong);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 900;
+  padding: 0 13px;
+}
+
+.followup-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .answer-locked {
   display: grid;
   min-height: 360px;
@@ -2006,6 +2044,14 @@ a:focus-visible {
   .history-card li {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .followup-card {
+    grid-template-columns: 1fr;
+  }
+
+  .followup-card button {
+    width: 100%;
   }
 
   .answer-input {

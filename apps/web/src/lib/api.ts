@@ -261,6 +261,10 @@ export function buildGenerateAnswerJobInput(questionId: string) {
   return { questionId };
 }
 
+export function buildGenerateFollowupJobInput(attemptId: string, count = 3) {
+  return { attemptId, count };
+}
+
 export function buildSourceDocumentsPath(input?: SourceDocumentListQuery) {
   const searchParams = new URLSearchParams();
 
