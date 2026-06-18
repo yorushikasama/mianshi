@@ -99,6 +99,37 @@ export class PrismaAiJobRepository implements AiJobRepository, AiJobStateReposit
     });
   }
 
+  async getUsageSummary(userId: string) {
+    const [aggregate, succeededJobs, failedJobs] = await Promise.all([
+      this.prisma.aiJob.aggregate({
+        where: { userId },
+        _count: { _all: true },
+        _sum: { tokenUsage: true },
+        _avg: { latencyMs: true },
+      }),
+      this.prisma.aiJob.count({
+        where: {
+          userId,
+          status: "succeeded",
+        },
+      }),
+      this.prisma.aiJob.count({
+        where: {
+          userId,
+          status: "failed",
+        },
+      }),
+    ]);
+
+    return {
+      totalJobs: aggregate._count._all,
+      succeededJobs,
+      failedJobs,
+      totalTokenUsage: aggregate._sum.tokenUsage ?? 0,
+      averageLatencyMs: aggregate._avg.latencyMs === null ? null : Math.round(aggregate._avg.latencyMs),
+    };
+  }
+
   async markRunning(jobId: string) {
     await this.prisma.aiJob.update({
       where: { id: jobId },

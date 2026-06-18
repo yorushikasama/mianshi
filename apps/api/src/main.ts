@@ -8,6 +8,7 @@ import { AppModule } from "./app.module";
 import { validateApiEnvironment } from "./config/environment";
 import { ApiExceptionFilter } from "./http/api-exception.filter";
 import { requestContextMiddleware } from "./http/request-context.middleware";
+import { requestLoggerMiddleware } from "./http/request-logger.middleware";
 
 for (const envPath of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../../.env")]) {
   if (existsSync(envPath)) {
@@ -20,6 +21,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.use(requestContextMiddleware);
+  app.use(requestLoggerMiddleware);
   app.useGlobalFilters(new ApiExceptionFilter());
   app.enableCors({
     origin: runtimeConfig.webOrigin,

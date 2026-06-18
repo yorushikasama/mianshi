@@ -3,12 +3,14 @@ import { Inject, Injectable } from "@nestjs/common";
 import { z } from "zod";
 import {
   AiJobListResultSchema,
+  AiJobUsageSummarySchema,
   CreateAiJobInputSchema,
   aiJobStatuses,
   type AiJob,
   type AiJobListResult,
   type AiJobStatus,
   type AiJobType,
+  type AiJobUsageSummary,
 } from "@mianshi/shared";
 import { AI_JOB_REPOSITORY, AI_TASK_QUEUE } from "./ai-job.tokens";
 
@@ -37,6 +39,13 @@ export interface AiJobRepository {
     pageSize: number;
   }): Promise<{ items: AiJob[]; total: number }>;
   countJobsCreatedSince(input: { userId: string; since: Date }): Promise<number>;
+  getUsageSummary(userId: string): Promise<{
+    totalJobs: number;
+    succeededJobs: number;
+    failedJobs: number;
+    totalTokenUsage: number;
+    averageLatencyMs: number | null;
+  }>;
 }
 
 export interface AiTaskQueue {
@@ -97,6 +106,16 @@ export class AiJobService {
       page: parsedInput.page,
       pageSize: parsedInput.pageSize,
       totalPages: Math.ceil(result.total / parsedInput.pageSize),
+    });
+  }
+
+  async getUsageSummary(userId: string): Promise<AiJobUsageSummary> {
+    const summary = await this.aiJobRepository.getUsageSummary(userId);
+
+    return AiJobUsageSummarySchema.parse({
+      generatedAt: new Date().toISOString(),
+      ...summary,
+      estimatedCostUsd: estimateCostUsd(summary.totalTokenUsage),
     });
   }
 
@@ -161,4 +180,14 @@ function toErrorMessage(error: unknown) {
   }
 
   return "AI job enqueue failed";
+}
+
+function estimateCostUsd(tokenUsage: number) {
+  const rateUsdPer1kTokens = Number(process.env.AI_COST_USD_PER_1K_TOKENS);
+
+  if (!Number.isFinite(rateUsdPer1kTokens) || rateUsdPer1kTokens <= 0) {
+    return 0;
+  }
+
+  return Number(((tokenUsage / 1000) * rateUsdPer1kTokens).toFixed(6));
 }

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { z } from "zod";
-import { ReviewOverviewSchema, ReviewTodaySchema } from "@mianshi/shared";
-import type { DifficultyLevel, FsrsRatingName, QuestionType, ReviewOverview, ReviewToday } from "@mianshi/shared";
+import { ReviewMistakesSchema, ReviewOverviewSchema, ReviewTodaySchema } from "@mianshi/shared";
+import type { DifficultyLevel, FsrsRatingName, QuestionType, ReviewMistakes, ReviewOverview, ReviewToday } from "@mianshi/shared";
 
 const ReviewOverviewInputSchema = z.object({
   now: z.date().optional(),
@@ -12,6 +12,12 @@ const ReviewOverviewInputSchema = z.object({
 const ReviewTodayInputSchema = z.object({
   now: z.date().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(8),
+});
+
+const ReviewMistakesInputSchema = z.object({
+  now: z.date().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  maxScore: z.coerce.number().int().min(0).max(100).default(70),
 });
 
 export interface ReviewStateRecord {
@@ -126,6 +132,16 @@ export class ReviewService {
       items: overview.dueItems,
     });
   }
+
+  async getMistakes(userId: string, input: unknown = {}): Promise<ReviewMistakes> {
+    const parsedInput = ReviewMistakesInputSchema.parse(input ?? {});
+    const attempts = await this.reviewRepository.listAttemptsForAnalytics(userId);
+
+    return ReviewMistakesSchema.parse({
+      generatedAt: (parsedInput.now ?? new Date()).toISOString(),
+      items: buildMistakeItems(attempts, parsedInput.maxScore).slice(0, parsedInput.limit),
+    });
+  }
 }
 
 function buildWeakCategories(attempts: ReviewAttemptRecord[]) {
@@ -166,6 +182,57 @@ function buildWeakCategories(attempts: ReviewAttemptRecord[]) {
     .filter((category) => category.averageScore < 75 || category.lowestScore < 60)
     .sort((left, right) => left.averageScore - right.averageScore || right.attemptCount - left.attemptCount)
     .slice(0, 5);
+}
+
+function buildMistakeItems(attempts: ReviewAttemptRecord[], maxScore: number) {
+  const byQuestion = new Map<
+    string,
+    {
+      questionId: string;
+      title: string;
+      categorySlug: string;
+      categoryName: string;
+      scores: number[];
+      latestScore: number;
+      lastAttemptAt: Date;
+    }
+  >();
+
+  for (const attempt of attempts) {
+    const existing = byQuestion.get(attempt.questionId);
+    if (!existing) {
+      byQuestion.set(attempt.questionId, {
+        questionId: attempt.questionId,
+        title: attempt.title,
+        categorySlug: attempt.categorySlug,
+        categoryName: attempt.categoryName,
+        scores: [attempt.score],
+        latestScore: attempt.score,
+        lastAttemptAt: attempt.createdAt,
+      });
+      continue;
+    }
+
+    existing.scores.push(attempt.score);
+    if (attempt.createdAt.getTime() > existing.lastAttemptAt.getTime()) {
+      existing.latestScore = attempt.score;
+      existing.lastAttemptAt = attempt.createdAt;
+    }
+  }
+
+  return Array.from(byQuestion.values())
+    .map((question) => ({
+      questionId: question.questionId,
+      title: question.title,
+      categorySlug: question.categorySlug,
+      categoryName: question.categoryName,
+      lowestScore: Math.min(...question.scores),
+      latestScore: question.latestScore,
+      attemptCount: question.scores.length,
+      lastAttemptAt: question.lastAttemptAt.toISOString(),
+    }))
+    .filter((item) => item.lowestScore <= maxScore)
+    .sort((left, right) => left.lowestScore - right.lowestScore || Date.parse(right.lastAttemptAt) - Date.parse(left.lastAttemptAt));
 }
 
 function startOfUtcDay(date: Date) {

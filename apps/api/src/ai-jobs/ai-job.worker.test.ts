@@ -29,7 +29,10 @@ describe("AiJobWorker", () => {
         tokenUsage: 321,
       })),
     };
-    const worker = new AiJobWorker(repository as never, executor as never);
+    const traceRecorder = {
+      record: vi.fn(async () => undefined),
+    };
+    const worker = new AiJobWorker(repository as never, executor as never, traceRecorder as never);
 
     await worker.process({
       data: {
@@ -64,6 +67,16 @@ describe("AiJobWorker", () => {
       latencyMs: expect.any(Number),
     });
     expect(repository.markFailed).not.toHaveBeenCalled();
+    expect(traceRecorder.record).toHaveBeenCalledWith({
+      jobId: "job_1",
+      userId: "user_1",
+      type: "generate_questions",
+      status: "succeeded",
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 321,
+      latencyMs: expect.any(Number),
+    });
   });
 
   it("adds a configured AI cost estimate to successful job output", async () => {
@@ -132,7 +145,10 @@ describe("AiJobWorker", () => {
         tokenUsage: 0,
       })),
     };
-    const worker = new AiJobWorker(repository as never, executor as never);
+    const traceRecorder = {
+      record: vi.fn(async () => undefined),
+    };
+    const worker = new AiJobWorker(repository as never, executor as never, traceRecorder as never);
 
     await expect(
       worker.process({
@@ -153,6 +169,63 @@ describe("AiJobWorker", () => {
       retryCount: 2,
       latencyMs: expect.any(Number),
     });
+    expect(traceRecorder.record).toHaveBeenCalledWith({
+      jobId: "job_1",
+      userId: "user_1",
+      type: "generate_answer",
+      status: "failed",
+      error: "database unavailable",
+      retryCount: 2,
+      latencyMs: expect.any(Number),
+    });
+  });
+
+  it("does not fail a successful job when trace recording fails", async () => {
+    const repository = {
+      findJobById: vi.fn(async () => ({ status: "pending" })),
+      markRunning: vi.fn(async () => undefined),
+      markSucceeded: vi.fn(async () => undefined),
+      markFailed: vi.fn(async () => undefined),
+    };
+    const executor = {
+      execute: vi.fn(async () => ({
+        output: {
+          answerId: "answer_1",
+        },
+        model: "gpt-5.5",
+        promptVersionId: "prompt_1",
+        tokenUsage: 100,
+      })),
+    };
+    const traceRecorder = {
+      record: vi.fn(async () => {
+        throw new Error("langfuse unavailable");
+      }),
+    };
+    const worker = new AiJobWorker(repository as never, executor as never, traceRecorder as never);
+
+    await worker.process({
+      data: {
+        jobId: "job_1",
+        userId: "user_1",
+        type: "generate_answer",
+        input: {
+          questionId: "q_1",
+        },
+      },
+      attemptsMade: 0,
+    } as never);
+
+    expect(repository.markSucceeded).toHaveBeenCalledWith("job_1", {
+      output: {
+        answerId: "answer_1",
+      },
+      model: "gpt-5.5",
+      promptVersionId: "prompt_1",
+      tokenUsage: 100,
+      latencyMs: expect.any(Number),
+    });
+    expect(repository.markFailed).not.toHaveBeenCalled();
   });
 
   it("skips canceled jobs before execution", async () => {

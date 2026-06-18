@@ -170,6 +170,50 @@ describe("ReviewService", () => {
     expect(today.dueTodayCount).toBe(1);
     expect(today.items.map((item) => item.questionId)).toEqual(["q_jvm_gc_roots"]);
   });
+
+  it("returns low-score mistakes grouped by question for the current user", async () => {
+    const repository = new FakeReviewRepository();
+    repository.attempts.push(
+      createAttempt({
+        userId: "user_1",
+        attemptId: "attempt_recheck",
+        questionId: "q_thread_pool_rejection",
+        title: "线程池拒绝策略如何选择？",
+        categoryName: "Java 并发",
+        categorySlug: "concurrency",
+        score: 58,
+        rating: "hard",
+        createdAt: new Date("2026-06-12T08:00:00.000Z"),
+      }),
+    );
+    const service = new ReviewService(repository);
+
+    const mistakes = await service.getMistakes("user_1", {
+      now: new Date("2026-06-18T09:30:00.000Z"),
+      limit: 10,
+      maxScore: 70,
+    });
+
+    expect(mistakes.generatedAt).toBe("2026-06-18T09:30:00.000Z");
+    expect(mistakes.items).toEqual([
+      expect.objectContaining({
+        questionId: "q_thread_pool_rejection",
+        lowestScore: 48,
+        latestScore: 58,
+        attemptCount: 2,
+        lastAttemptAt: "2026-06-12T08:00:00.000Z",
+      }),
+      expect.objectContaining({
+        questionId: "q_jvm_gc_roots",
+        lowestScore: 62,
+        latestScore: 62,
+        attemptCount: 1,
+        lastAttemptAt: "2026-06-09T08:00:00.000Z",
+      }),
+    ]);
+    expect(mistakes.items.map((item) => item.questionId)).not.toContain("q_other_user");
+    expect(mistakes.items.map((item) => item.questionId)).not.toContain("q_project_latency_optimization");
+  });
 });
 
 function createReviewState(input: {

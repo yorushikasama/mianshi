@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AiJobSchema, CreateAiJobInputSchema } from "./ai-jobs";
+import { AiJobSchema, AiJobUsageSummarySchema, CreateAiJobInputSchema } from "./ai-jobs";
 
 describe("AI job schemas", () => {
   it("validates a structured AI job creation request", () => {
@@ -43,5 +43,20 @@ describe("AI job schemas", () => {
 
     expect(job.status).toBe("pending");
     expect(job.queueJobId).toBe("bullmq_1");
+  });
+
+  it("validates AI job usage summary data for cost dashboards", () => {
+    const summary = AiJobUsageSummarySchema.parse({
+      generatedAt: "2026-06-18T00:00:00.000Z",
+      totalJobs: 4,
+      succeededJobs: 2,
+      failedJobs: 1,
+      totalTokenUsage: 1200,
+      averageLatencyMs: 250,
+      estimatedCostUsd: 0.012,
+    });
+
+    expect(summary.totalTokenUsage).toBe(1200);
+    expect(summary.estimatedCostUsd).toBe(0.012);
   });
 });

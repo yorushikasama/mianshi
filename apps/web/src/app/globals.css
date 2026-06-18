@@ -337,7 +337,8 @@ a:focus-visible {
 .pipeline-step,
 .focus-panel,
 .review-queue,
-.recent-panel {
+.recent-panel,
+.ai-usage-panel {
   border: 1px solid var(--line);
   background: var(--surface);
   backdrop-filter: blur(14px);
@@ -510,14 +511,15 @@ a:focus-visible {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 0.75fr) minmax(340px, 1.2fr) minmax(260px, 0.8fr);
+  grid-template-columns: minmax(240px, 0.8fr) minmax(320px, 1.1fr) minmax(240px, 0.78fr);
   gap: 14px;
   align-items: stretch;
 }
 
 .focus-panel,
 .review-queue,
-.recent-panel {
+.recent-panel,
+.ai-usage-panel {
   min-height: 280px;
   padding: 20px;
 }
@@ -547,8 +549,70 @@ a:focus-visible {
 }
 
 .review-queue,
-.recent-panel {
+.recent-panel,
+.ai-usage-panel {
   background: var(--surface-solid);
+}
+
+.usage-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.usage-facts div {
+  min-height: 76px;
+  padding: 12px;
+  background: rgba(8, 127, 106, 0.07);
+}
+
+.usage-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.usage-facts dd {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.usage-note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.failed-job-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.failed-job-list li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(217, 119, 87, 0.18);
+}
+
+.failed-job-list strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.failed-job-list span,
+.failed-job-list em {
+  color: var(--muted);
+  font-size: 13px;
+  font-style: normal;
+  line-height: 1.45;
 }
 
 .queue-skeleton {
@@ -1848,7 +1912,8 @@ a:focus-visible {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 0.85fr);
   }
 
-  .review-queue {
+  .review-queue,
+  .ai-usage-panel {
     grid-column: 1 / -1;
   }
 
@@ -1877,7 +1942,8 @@ a:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .review-queue {
+  .review-queue,
+  .ai-usage-panel {
     grid-column: auto;
   }
 
@@ -1962,7 +2028,8 @@ a:focus-visible {
   .reason-row,
   .pipeline-grid,
   .category-grid,
-  .risk-facts {
+  .risk-facts,
+  .usage-facts {
     grid-template-columns: 1fr;
   }
 

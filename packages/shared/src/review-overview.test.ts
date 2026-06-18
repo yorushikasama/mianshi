@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ReviewOverviewSchema, ReviewTodaySchema } from "./review";
+import { ReviewMistakesSchema, ReviewOverviewSchema, ReviewTodaySchema } from "./review";
 
 describe("ReviewOverviewSchema", () => {
   it("accepts a review dashboard overview with due items and weak categories", () => {
@@ -77,5 +77,25 @@ describe("ReviewOverviewSchema", () => {
     });
 
     expect(today.items[0].questionId).toBe("q_jvm_gc_roots");
+  });
+
+  it("accepts a mistake review response grouped by weak questions", () => {
+    const mistakes = ReviewMistakesSchema.parse({
+      generatedAt: "2026-06-18T00:00:00.000Z",
+      items: [
+        {
+          questionId: "q_thread_pool_rejection",
+          title: "线程池拒绝策略如何选择？",
+          categorySlug: "concurrency",
+          categoryName: "Java 并发",
+          lowestScore: 48,
+          latestScore: 58,
+          attemptCount: 2,
+          lastAttemptAt: "2026-06-17T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(mistakes.items[0].lowestScore).toBe(48);
   });
 });

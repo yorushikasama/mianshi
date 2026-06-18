@@ -41,6 +41,17 @@ export const ReviewWeakCategorySchema = z.object({
   lowestScore: z.number().int().min(0).max(100),
 });
 
+export const ReviewMistakeItemSchema = z.object({
+  questionId: z.string().min(1),
+  title: z.string().min(1),
+  categorySlug: z.string().min(1),
+  categoryName: z.string().min(1),
+  lowestScore: z.number().int().min(0).max(100),
+  latestScore: z.number().int().min(0).max(100),
+  attemptCount: z.number().int().positive(),
+  lastAttemptAt: z.string().datetime(),
+});
+
 export const ReviewOverviewSchema = z.object({
   generatedAt: z.string().datetime(),
   dueTodayCount: z.number().int().nonnegative(),
@@ -59,12 +70,19 @@ export const ReviewTodaySchema = z.object({
   items: z.array(ReviewDueItemSchema),
 });
 
+export const ReviewMistakesSchema = z.object({
+  generatedAt: z.string().datetime(),
+  items: z.array(ReviewMistakeItemSchema),
+});
+
 export type ReviewItemStatus = (typeof reviewItemStatuses)[number];
 export type ReviewDueItem = z.infer<typeof ReviewDueItemSchema>;
 export type ReviewRecentAttempt = z.infer<typeof ReviewRecentAttemptSchema>;
 export type ReviewWeakCategory = z.infer<typeof ReviewWeakCategorySchema>;
+export type ReviewMistakeItem = z.infer<typeof ReviewMistakeItemSchema>;
 export type ReviewOverview = z.infer<typeof ReviewOverviewSchema>;
 export type ReviewToday = z.infer<typeof ReviewTodaySchema>;
+export type ReviewMistakes = z.infer<typeof ReviewMistakesSchema>;
 
 export interface ScoreToFsrsRatingInput {
   aiScore: number;

@@ -49,8 +49,19 @@ export const AiJobListResultSchema = z.object({
   totalPages: z.number().int().nonnegative(),
 });
 
+export const AiJobUsageSummarySchema = z.object({
+  generatedAt: z.string().datetime(),
+  totalJobs: z.number().int().nonnegative(),
+  succeededJobs: z.number().int().nonnegative(),
+  failedJobs: z.number().int().nonnegative(),
+  totalTokenUsage: z.number().int().nonnegative(),
+  averageLatencyMs: z.number().int().nonnegative().nullable(),
+  estimatedCostUsd: z.number().nonnegative(),
+});
+
 export type AiJobType = (typeof aiJobTypes)[number];
 export type AiJobStatus = (typeof aiJobStatuses)[number];
 export type CreateAiJobInput = z.infer<typeof CreateAiJobInputSchema>;
 export type AiJob = z.infer<typeof AiJobSchema>;
 export type AiJobListResult = z.infer<typeof AiJobListResultSchema>;
+export type AiJobUsageSummary = z.infer<typeof AiJobUsageSummarySchema>;

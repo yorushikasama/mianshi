@@ -65,6 +65,21 @@ describe("AiJobController", () => {
     });
   });
 
+  it("uses the authenticated user id when fetching AI job usage", async () => {
+    const service = {
+      createJob: async () => ({}),
+      listJobs: async () => ({ items: [], total: 0 }),
+      getJob: async () => ({}),
+      cancelJob: async () => ({}),
+      getUsageSummary: async (userId: string) => ({ userId }),
+    };
+    const controller = new AiJobController(service as never);
+
+    await expect(controller.getUsageSummary({ user: { id: "user_1" } } as never)).resolves.toEqual({
+      userId: "user_1",
+    });
+  });
+
   it("maps daily AI job limit errors to forbidden responses", async () => {
     const service = {
       createJob: async () => {

@@ -40,6 +40,15 @@ export class AiJobController {
     }
   }
 
+  @Get("usage")
+  async getUsageSummary(@Req() request: AuthenticatedRequest) {
+    try {
+      return await this.aiJobService.getUsageSummary(getCurrentUserId(request));
+    } catch (error) {
+      throw mapAiJobError(error);
+    }
+  }
+
   @Get(":jobId")
   async getJob(@Req() request: AuthenticatedRequest, @Param("jobId") jobId: string) {
     try {

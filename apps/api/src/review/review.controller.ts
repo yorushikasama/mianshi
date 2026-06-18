@@ -17,6 +17,11 @@ export class ReviewController {
   getToday(@Req() request: AuthenticatedRequest, @Query() query: unknown) {
     return this.reviewService.getToday(getCurrentUserId(request), query);
   }
+
+  @Get("mistakes")
+  getMistakes(@Req() request: AuthenticatedRequest, @Query() query: unknown) {
+    return this.reviewService.getMistakes(getCurrentUserId(request), query);
+  }
 }
 
 function getCurrentUserId(request: AuthenticatedRequest) {

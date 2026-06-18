@@ -121,6 +121,48 @@ describe("PrismaAiJobRepository", () => {
     expect(count).toBe(3);
   });
 
+  it("summarizes AI job usage by user", async () => {
+    const prisma = {
+      aiJob: {
+        aggregate: vi.fn(async () => ({
+          _count: { _all: 3 },
+          _sum: { tokenUsage: 1500 },
+          _avg: { latencyMs: 250 },
+        })),
+        count: vi.fn(async ({ where }: { where: { status?: string } }) => (where.status === "succeeded" ? 2 : 1)),
+      },
+    };
+    const repository = new PrismaAiJobRepository(prisma as never);
+
+    const summary = await repository.getUsageSummary("user_1");
+
+    expect(prisma.aiJob.aggregate).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
+      _count: { _all: true },
+      _sum: { tokenUsage: true },
+      _avg: { latencyMs: true },
+    });
+    expect(prisma.aiJob.count).toHaveBeenCalledWith({
+      where: {
+        userId: "user_1",
+        status: "succeeded",
+      },
+    });
+    expect(prisma.aiJob.count).toHaveBeenCalledWith({
+      where: {
+        userId: "user_1",
+        status: "failed",
+      },
+    });
+    expect(summary).toEqual({
+      totalJobs: 3,
+      succeededJobs: 2,
+      failedJobs: 1,
+      totalTokenUsage: 1500,
+      averageLatencyMs: 250,
+    });
+  });
+
   it("marks jobs succeeded with structured output and AI trace metadata", async () => {
     const prisma = {
       aiJob: {

@@ -500,6 +500,7 @@ POST   /questions/:id/answers/generate
 POST   /practice/attempts
 GET    /practice/attempts
 GET    /review/today
+GET    /review/mistakes
 
 POST   /documents
 GET    /documents

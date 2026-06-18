@@ -11,8 +11,10 @@ import {
   AI_MODEL_CLIENT,
   AI_TASK_EXECUTOR,
   AI_TASK_QUEUE,
+  AI_TRACE_RECORDER,
 } from "./ai-job.tokens";
 import { BullMqAiTaskQueue } from "./bullmq-ai-task.queue";
+import { LangfuseAiTraceRecorder } from "./langfuse-ai-trace.recorder";
 import { OpenAiStructuredOutputClient } from "./openai-structured-output.client";
 import { PrismaAiGenerationRepository } from "./prisma-ai-generation.repository";
 import { PrismaAiJobRepository } from "./prisma-ai-job.repository";
@@ -27,6 +29,7 @@ import { PrismaAiJobRepository } from "./prisma-ai-job.repository";
     BullMqAiTaskQueue,
     AiTaskExecutorService,
     AiJobWorker,
+    LangfuseAiTraceRecorder,
     {
       provide: AI_JOB_REPOSITORY,
       useExisting: PrismaAiJobRepository,
@@ -50,6 +53,10 @@ import { PrismaAiJobRepository } from "./prisma-ai-job.repository";
     {
       provide: AI_MODEL_CLIENT,
       useFactory: () => new OpenAiStructuredOutputClient(),
+    },
+    {
+      provide: AI_TRACE_RECORDER,
+      useExisting: LangfuseAiTraceRecorder,
     },
   ],
   exports: [AiJobService],

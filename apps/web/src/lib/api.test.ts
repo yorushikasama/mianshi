@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
   buildAiJobsPath,
+  buildAiJobUsagePath,
   buildApiUrl,
   buildGenerateAnswerJobInput,
   buildGenerateFollowupJobInput,
   buildPracticeAttemptsPath,
   buildQuestionsPath,
+  buildReviewMistakesPath,
   buildRagQuestionJobInput,
   buildReviewOverviewPath,
   buildReviewTodayPath,
@@ -16,11 +18,13 @@ import {
   createAiJob,
   createSourceDocument,
   fetchAiJobs,
+  fetchAiJobUsage,
   fetchQuestion,
   fetchQuestionAnswer,
   fetchQuestions,
   fetchSourceDocuments,
   fetchReviewOverview,
+  fetchReviewMistakes,
   fetchReviewToday,
   fetchPracticeAttempts,
   getAccessToken,
@@ -74,10 +78,18 @@ describe("web API client helpers", () => {
     expect(buildReviewTodayPath({ limit: 6 })).toBe("/review/today?limit=6");
   });
 
+  it("builds review mistake paths with optional threshold and limits", () => {
+    expect(buildReviewMistakesPath({ limit: 8, maxScore: 65 })).toBe("/review/mistakes?limit=8&maxScore=65");
+  });
+
   it("builds AI job list paths with optional status and pagination", () => {
     expect(buildAiJobsPath({ status: "pending", page: 2, pageSize: 10 })).toBe(
       "/ai/jobs?status=pending&page=2&pageSize=10",
     );
+  });
+
+  it("builds the AI job usage path", () => {
+    expect(buildAiJobUsagePath()).toBe("/ai/jobs/usage");
   });
 
   it("builds source document list paths with optional type filters", () => {
@@ -154,6 +166,28 @@ describe("web API client helpers", () => {
     );
   });
 
+  it("fetches protected review mistakes with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        generatedAt: "2026-06-18T00:00:00.000Z",
+        items: [],
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchReviewMistakes({ limit: 8, maxScore: 65 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/review/mistakes?limit=8&maxScore=65",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
   it("fetches protected AI jobs with the current access token", async () => {
     setAccessToken("access-token");
     const fetchMock = vi.fn(async () =>
@@ -171,6 +205,33 @@ describe("web API client helpers", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3001/ai/jobs?status=pending",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("fetches protected AI job usage with the current access token", async () => {
+    setAccessToken("access-token");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        generatedAt: "2026-06-18T00:00:00.000Z",
+        totalJobs: 2,
+        succeededJobs: 1,
+        failedJobs: 1,
+        totalTokenUsage: 1250,
+        averageLatencyMs: 150,
+        estimatedCostUsd: 0.0125,
+      }),
+    );
+    globalThis.fetch = fetchMock as never;
+
+    await fetchAiJobUsage();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3001/ai/jobs/usage",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer access-token",

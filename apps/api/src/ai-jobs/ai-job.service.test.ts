@@ -68,6 +68,23 @@ class FakeAiJobRepository implements AiJobRepository {
     void input.since;
     return this.jobs.filter((job) => job.userId === input.userId).length;
   }
+
+  async getUsageSummary(userId: string) {
+    const visible = this.jobs.filter((job) => job.userId === userId);
+    const latencies = visible
+      .map((job) => job.latencyMs)
+      .filter((latency): latency is number => typeof latency === "number");
+
+    return {
+      totalJobs: visible.length,
+      succeededJobs: visible.filter((job) => job.status === "succeeded").length,
+      failedJobs: visible.filter((job) => job.status === "failed").length,
+      totalTokenUsage: visible.reduce((total, job) => total + job.tokenUsage, 0),
+      averageLatencyMs: latencies.length
+        ? Math.round(latencies.reduce((total, latency) => total + latency, 0) / latencies.length)
+        : null,
+    };
+  }
 }
 
 class FakeAiTaskQueue implements AiTaskQueue {
@@ -180,6 +197,42 @@ describe("AiJobService", () => {
 
     repository.jobs[0].status = "running";
     await expect(() => service.cancelJob("user_1", job.id)).rejects.toThrow("AI job cannot be canceled");
+  });
+
+  it("summarizes the current user's AI job usage and estimated cost", async () => {
+    process.env.AI_COST_USD_PER_1K_TOKENS = "0.01";
+    const { repository, service } = createService();
+
+    await service.createJob("user_1", { type: "generate_questions", input: { count: 2 } });
+    Object.assign(repository.jobs[0], {
+      status: "succeeded",
+      tokenUsage: 1000,
+      latencyMs: 200,
+    });
+    await service.createJob("user_1", { type: "generate_answer", input: { questionId: "q_1" } });
+    Object.assign(repository.jobs[1], {
+      status: "failed",
+      tokenUsage: 250,
+      latencyMs: 100,
+    });
+    await service.createJob("user_2", { type: "generate_questions", input: { count: 2 } });
+    Object.assign(repository.jobs[2], {
+      status: "succeeded",
+      tokenUsage: 9999,
+      latencyMs: 999,
+    });
+
+    const summary = await service.getUsageSummary("user_1");
+
+    expect(summary).toMatchObject({
+      totalJobs: 2,
+      succeededJobs: 1,
+      failedJobs: 1,
+      totalTokenUsage: 1250,
+      averageLatencyMs: 150,
+      estimatedCostUsd: 0.0125,
+    });
+    expect(summary.generatedAt).toEqual(expect.any(String));
   });
 });
 

@@ -2,7 +2,14 @@ import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Worker, type Job } from "bullmq";
 import type { AiJobType } from "@mianshi/shared";
 import { AI_TASK_QUEUE_NAME, createRedisConnectionOptions } from "./bullmq-ai-task.queue";
-import { AI_JOB_STATE_REPOSITORY, AI_TASK_EXECUTOR, type AiJobStateRepository, type AiTaskExecutor } from "./ai-job.tokens";
+import {
+  AI_JOB_STATE_REPOSITORY,
+  AI_TASK_EXECUTOR,
+  AI_TRACE_RECORDER,
+  type AiJobStateRepository,
+  type AiTaskExecutor,
+  type AiTraceRecorder,
+} from "./ai-job.tokens";
 
 type AiTaskPayload = {
   jobId: string;
@@ -20,6 +27,8 @@ export class AiJobWorker implements OnModuleInit, OnModuleDestroy {
     private readonly repository: AiJobStateRepository,
     @Inject(AI_TASK_EXECUTOR)
     private readonly executor: AiTaskExecutor,
+    @Inject(AI_TRACE_RECORDER)
+    private readonly traceRecorder: AiTraceRecorder = { record: async () => undefined },
   ) {}
 
   onModuleInit() {
@@ -43,18 +52,48 @@ export class AiJobWorker implements OnModuleInit, OnModuleDestroy {
 
       await this.repository.markRunning(job.data.jobId);
       const result = await this.executor.execute(job.data);
+      const latencyMs = elapsedMs(startedAt);
       await this.repository.markSucceeded(job.data.jobId, {
         ...result,
         output: withAiCostEstimate(result.output, result.tokenUsage),
-        latencyMs: elapsedMs(startedAt),
+        latencyMs,
+      });
+      await this.recordTrace({
+        jobId: job.data.jobId,
+        userId: job.data.userId,
+        type: job.data.type,
+        status: "succeeded",
+        model: result.model,
+        promptVersionId: result.promptVersionId,
+        tokenUsage: result.tokenUsage,
+        latencyMs,
       });
     } catch (error) {
+      const errorMessage = toErrorMessage(error);
+      const latencyMs = elapsedMs(startedAt);
       await this.repository.markFailed(job.data.jobId, {
-        error: toErrorMessage(error),
+        error: errorMessage,
         retryCount: job.attemptsMade,
-        latencyMs: elapsedMs(startedAt),
+        latencyMs,
+      });
+      await this.recordTrace({
+        jobId: job.data.jobId,
+        userId: job.data.userId,
+        type: job.data.type,
+        status: "failed",
+        error: errorMessage,
+        retryCount: job.attemptsMade,
+        latencyMs,
       });
       throw error;
+    }
+  }
+
+  private async recordTrace(input: Parameters<AiTraceRecorder["record"]>[0]) {
+    try {
+      await this.traceRecorder.record(input);
+    } catch {
+      // ponytail: tracing is best-effort; persistent job state is the source of truth.
     }
   }
 }

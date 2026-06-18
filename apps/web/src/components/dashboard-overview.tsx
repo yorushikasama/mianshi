@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ReviewOverview } from "@mianshi/shared";
+import type { AiJob, AiJobUsageSummary, ReviewMistakes, ReviewOverview } from "@mianshi/shared";
 import {
   AlertCircle,
   ArrowRight,
@@ -14,7 +14,8 @@ import {
   TimerReset,
 } from "lucide-react";
 import { useAuth } from "./auth-provider";
-import { ApiError, fetchReviewOverview } from "@/lib/api";
+import { ApiError, fetchAiJobUsage, fetchAiJobs, fetchReviewMistakes, fetchReviewOverview } from "@/lib/api";
+import { formatAiJobFailureSummary, formatAiJobUsageSummary } from "@/lib/ai-job-usage-ui";
 
 const fallbackTasks = [
   {
@@ -45,6 +46,9 @@ interface DashboardOverviewProps {
 export function DashboardOverview({ categoryCount, seedQuestionCount }: DashboardOverviewProps) {
   const { status, user } = useAuth();
   const [overview, setOverview] = useState<ReviewOverview | null>(null);
+  const [mistakes, setMistakes] = useState<ReviewMistakes | null>(null);
+  const [usageSummary, setUsageSummary] = useState<AiJobUsageSummary | null>(null);
+  const [failedJobs, setFailedJobs] = useState<AiJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +58,9 @@ export function DashboardOverview({ categoryCount, seedQuestionCount }: Dashboar
     async function loadOverview() {
       if (status !== "authenticated") {
         setOverview(null);
+        setMistakes(null);
+        setUsageSummary(null);
+        setFailedJobs([]);
         setError(null);
         setLoading(false);
         return;
@@ -63,12 +70,24 @@ export function DashboardOverview({ categoryCount, seedQuestionCount }: Dashboar
       setError(null);
 
       try {
-        const loadedOverview = await fetchReviewOverview({ dueLimit: 6, recentLimit: 5 });
+        const [loadedOverview, loadedMistakes, loadedUsageSummary, loadedFailedJobs] = await Promise.all([
+          fetchReviewOverview({ dueLimit: 6, recentLimit: 5 }),
+          fetchReviewMistakes({ limit: 4, maxScore: 70 }),
+          fetchAiJobUsage(),
+          fetchAiJobs({ status: "failed", pageSize: 3 }),
+        ]);
         if (active) {
           setOverview(loadedOverview);
+          setMistakes(loadedMistakes);
+          setUsageSummary(loadedUsageSummary);
+          setFailedJobs(loadedFailedJobs.items);
         }
       } catch (loadError) {
         if (active) {
+          setOverview(null);
+          setMistakes(null);
+          setUsageSummary(null);
+          setFailedJobs([]);
           setError(toErrorMessage(loadError));
         }
       } finally {
@@ -107,6 +126,7 @@ export function DashboardOverview({ categoryCount, seedQuestionCount }: Dashboar
 
   const primaryRisk = overview?.weakCategories[0];
   const dueItems = overview?.dueItems ?? [];
+  const formattedUsage = usageSummary ? formatAiJobUsageSummary(usageSummary) : null;
 
   return (
     <>
@@ -249,6 +269,35 @@ export function DashboardOverview({ categoryCount, seedQuestionCount }: Dashboar
 
           <article className="recent-panel">
             <div className="section-title">
+              <AlertCircle size={20} />
+              <h2>错题优先</h2>
+            </div>
+            {mistakes?.items.length ? (
+              <ol className="recent-list">
+                {mistakes.items.map((item) => (
+                  <li key={item.questionId}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>
+                        {item.categoryName} · 最低 {item.lowestScore} · 最近 {item.latestScore}
+                      </span>
+                    </div>
+                    <a className="score-pill" href={`/practice/${item.questionId}`}>
+                      重练
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="empty-state compact-empty">
+                <strong>{status === "authenticated" ? "暂时没有低分错题" : "登录后显示错题"}</strong>
+                <span>低于 70 分的题会进入这里，方便先补最容易丢分的部分。</span>
+              </div>
+            )}
+          </article>
+
+          <article className="recent-panel">
+            <div className="section-title">
               <BarChart3 size={20} />
               <h2>最近练习</h2>
             </div>
@@ -268,6 +317,59 @@ export function DashboardOverview({ categoryCount, seedQuestionCount }: Dashboar
               <div className="empty-state compact-empty">
                 <strong>{status === "authenticated" ? "还没有练习记录" : "登录后显示练习历史"}</strong>
                 <span>提交一次回答后，这里会展示最近分数和 FSRS 评级。</span>
+              </div>
+            )}
+          </article>
+
+          <article className="ai-usage-panel">
+            <div className="section-title">
+              <BarChart3 size={20} />
+              <h2>AI 用量</h2>
+            </div>
+            {loading ? (
+              <DashboardSkeleton />
+            ) : formattedUsage && usageSummary ? (
+              <>
+                <dl className="usage-facts">
+                  <div>
+                    <dt>任务数</dt>
+                    <dd>{formattedUsage.totalJobs}</dd>
+                  </div>
+                  <div>
+                    <dt>成功率</dt>
+                    <dd>{formattedUsage.successRate}</dd>
+                  </div>
+                  <div>
+                    <dt>Token</dt>
+                    <dd>{formattedUsage.totalTokenUsage}</dd>
+                  </div>
+                  <div>
+                    <dt>估算成本</dt>
+                    <dd>{formattedUsage.estimatedCost}</dd>
+                  </div>
+                </dl>
+                <p className="usage-note">
+                  平均延迟 {formattedUsage.averageLatency}，失败任务 {usageSummary.failedJobs} 个。这里只展示元数据，不展示简历或回答正文。
+                </p>
+                {failedJobs.length > 0 ? (
+                  <ol className="failed-job-list" aria-label="最近失败的 AI 任务">
+                    {failedJobs.map((job) => {
+                      const failedJob = formatAiJobFailureSummary(job);
+                      return (
+                        <li key={job.id}>
+                          <strong>{failedJob.type}</strong>
+                          <span>{failedJob.error}</span>
+                          <em>{failedJob.retryCount}</em>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : null}
+              </>
+            ) : (
+              <div className="empty-state compact-empty">
+                <strong>{status === "authenticated" ? "暂无 AI 任务" : "登录后显示 AI 用量"}</strong>
+                <span>生成题目、答案或评分后，这里会聚合 token、延迟和估算成本。</span>
               </div>
             )}
           </article>

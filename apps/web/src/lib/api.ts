@@ -3,6 +3,7 @@ import type {
   AiJob,
   AiJobListResult,
   AiJobStatus,
+  AiJobUsageSummary,
   CreateAiJobInput,
   CreateSourceDocumentInput,
   DocumentType,
@@ -13,6 +14,7 @@ import type {
   PracticeAttemptResult,
   PracticeReviewState,
   Question,
+  ReviewMistakes,
   ReviewOverview,
   ReviewToday,
 } from "@mianshi/shared";
@@ -220,6 +222,27 @@ export async function fetchReviewToday(input?: { limit?: number }) {
   });
 }
 
+export function buildReviewMistakesPath(input?: { limit?: number; maxScore?: number }) {
+  const searchParams = new URLSearchParams();
+
+  if (input?.limit) {
+    searchParams.set("limit", String(input.limit));
+  }
+
+  if (input?.maxScore !== undefined) {
+    searchParams.set("maxScore", String(input.maxScore));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/review/mistakes?${query}` : "/review/mistakes";
+}
+
+export async function fetchReviewMistakes(input?: { limit?: number; maxScore?: number }) {
+  return request<ReviewMistakes>(buildReviewMistakesPath(input), {
+    auth: true,
+  });
+}
+
 export function buildAiJobsPath(input?: { status?: AiJobStatus; page?: number; pageSize?: number }) {
   const searchParams = new URLSearchParams();
 
@@ -241,6 +264,16 @@ export function buildAiJobsPath(input?: { status?: AiJobStatus; page?: number; p
 
 export async function fetchAiJobs(input?: { status?: AiJobStatus; page?: number; pageSize?: number }) {
   return request<AiJobListResult>(buildAiJobsPath(input), {
+    auth: true,
+  });
+}
+
+export function buildAiJobUsagePath() {
+  return "/ai/jobs/usage";
+}
+
+export async function fetchAiJobUsage() {
+  return request<AiJobUsageSummary>(buildAiJobUsagePath(), {
     auth: true,
   });
 }

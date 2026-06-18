@@ -6,6 +6,7 @@ export const AI_TASK_QUEUE = Symbol("AI_TASK_QUEUE");
 export const AI_TASK_EXECUTOR = Symbol("AI_TASK_EXECUTOR");
 export const AI_GENERATION_REPOSITORY = Symbol("AI_GENERATION_REPOSITORY");
 export const AI_MODEL_CLIENT = Symbol("AI_MODEL_CLIENT");
+export const AI_TRACE_RECORDER = Symbol("AI_TRACE_RECORDER");
 
 export interface AiTaskExecutionInput {
   jobId: string;
@@ -23,6 +24,31 @@ export interface AiTaskExecutionResult {
 
 export interface AiTaskExecutor {
   execute(input: AiTaskExecutionInput): Promise<AiTaskExecutionResult>;
+}
+
+export type AiTraceRecord =
+  | {
+      jobId: string;
+      userId: string;
+      type: AiJobType;
+      status: "succeeded";
+      model: string;
+      promptVersionId?: string | null;
+      tokenUsage: number;
+      latencyMs: number;
+    }
+  | {
+      jobId: string;
+      userId: string;
+      type: AiJobType;
+      status: "failed";
+      error: string;
+      retryCount: number;
+      latencyMs: number;
+    };
+
+export interface AiTraceRecorder {
+  record(input: AiTraceRecord): Promise<void> | void;
 }
 
 export interface AiJobStateRepository {

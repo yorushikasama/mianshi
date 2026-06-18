@@ -7,7 +7,9 @@ import {
   AI_GENERATION_REPOSITORY,
   AI_MODEL_CLIENT,
   AI_TASK_EXECUTOR,
+  AI_TRACE_RECORDER,
 } from "./ai-job.tokens";
+import { LangfuseAiTraceRecorder } from "./langfuse-ai-trace.recorder";
 import { OpenAiStructuredOutputClient } from "./openai-structured-output.client";
 import { PrismaAiGenerationRepository } from "./prisma-ai-generation.repository";
 
@@ -19,6 +21,7 @@ describe("AiJobModule", () => {
       expect.arrayContaining([
         AiTaskExecutorService,
         PrismaAiGenerationRepository,
+        LangfuseAiTraceRecorder,
         expect.objectContaining({
           provide: AI_TASK_EXECUTOR,
           useExisting: AiTaskExecutorService,
@@ -30,6 +33,10 @@ describe("AiJobModule", () => {
         expect.objectContaining({
           provide: AI_MODEL_CLIENT,
           useFactory: expect.any(Function),
+        }),
+        expect.objectContaining({
+          provide: AI_TRACE_RECORDER,
+          useExisting: LangfuseAiTraceRecorder,
         }),
       ]),
     );
