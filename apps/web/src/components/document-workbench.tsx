@@ -13,16 +13,19 @@ import {
   LockKeyhole,
   RefreshCw,
   UploadCloud,
+  X,
 } from "lucide-react";
 import { useAuth } from "./auth-provider";
 import {
   ApiError,
   buildRagQuestionJobInput,
+  cancelAiJob,
   createAiJob,
   createSourceDocument,
   fetchAiJobs,
   fetchSourceDocuments,
 } from "@/lib/api";
+import { canCancelAiJob } from "@/lib/ai-job-ui";
 
 const documentTypeLabels: Record<DocumentType, string> = {
   resume: "简历",
@@ -66,6 +69,7 @@ export function DocumentWorkbench() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [cancelingJobId, setCancelingJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -226,6 +230,24 @@ export function DocumentWorkbench() {
     }
   }
 
+  async function handleCancelJob(jobId: string) {
+    setCancelingJobId(jobId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const canceledJob = await cancelAiJob(jobId);
+      setJobs((currentJobs) => currentJobs.map((job) => (job.id === canceledJob.id ? canceledJob : job)));
+      setCreatedJob((job) => (job?.id === canceledJob.id ? canceledJob : job));
+      setCreatedRagJob((job) => (job?.id === canceledJob.id ? canceledJob : job));
+      setSuccess("AI 任务已取消。");
+    } catch (cancelError) {
+      setError(toErrorMessage(cancelError));
+    } finally {
+      setCancelingJobId(null);
+    }
+  }
+
   return (
     <main className="document-page">
       <header className="document-header">
@@ -353,6 +375,18 @@ export function DocumentWorkbench() {
                   <strong>{job.type === "rag_generate_questions" ? "个性化题目" : "资料索引"}</strong>
                   <span>{job.progress}% · 重试 {job.retryCount}</span>
                 </div>
+                {canCancelAiJob(job) ? (
+                  <button
+                    aria-label={`取消 ${job.type} 任务`}
+                    className="job-cancel-button"
+                    disabled={cancelingJobId === job.id}
+                    type="button"
+                    onClick={() => void handleCancelJob(job.id)}
+                  >
+                    <X size={14} />
+                    {cancelingJobId === job.id ? "取消中" : "取消"}
+                  </button>
+                ) : null}
               </li>
             ))}
           </ol>
