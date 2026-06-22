@@ -6,7 +6,8 @@ import { targets } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { ExpandableTabs, type ExpandableTabItem } from "@/components/ui/expandable-tabs";
 import { ParticleCanvas } from "@/components/ui/particle-canvas-1";
-import { ButtonLink } from "@/components/ui/neon-button";
+import { Button } from "@/components/ui/shiny-button";
+import { cn } from "@/lib/utils";
 
 const nav = [
   ["Dashboard", "/dashboard"],
@@ -16,6 +17,10 @@ const nav = [
   ["资料", "/materials"],
   ["设置", "/settings"]
 ] as const;
+
+function isActiveRoute(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 function NavIcon({ type }: { type: "dashboard" | "generate" | "questions" | "practice" | "materials" | "settings" }) {
   const paths = {
@@ -62,7 +67,7 @@ function NavIcon({ type }: { type: "dashboard" | "generate" | "questions" | "pra
   } satisfies Record<string, React.ReactNode>;
 
   return (
-    <svg className="shell-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="block h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       {paths[type]}
     </svg>
   );
@@ -79,19 +84,25 @@ export function WorkbenchShell({ children }: { children: React.ReactNode }) {
     { title: "资料", href: "/materials", icon: <NavIcon type="materials" /> },
     { title: "设置", href: "/settings", icon: <NavIcon type="settings" /> }
   ];
-  const selectedIndex = tabItems.findIndex((item) => item.type !== "separator" && item.href === pathname);
+  const selectedIndex = tabItems.findIndex((item) => item.type !== "separator" && item.href && isActiveRoute(pathname, item.href));
+  const mobileLinkClass = (href: string) =>
+    cn(
+      "rounded-full px-4 py-2.5 font-bold text-[#17151f]/60 hover:bg-[#17151f12] hover:text-[#17151f]",
+      isActiveRoute(pathname, href) && "bg-[#17151f12] text-[#17151f] outline outline-1 outline-[#17151f14]"
+    );
 
   return (
-    <div className="workbench">
-      <div className="workbench-particles">
+    <div className="isolate min-h-screen overflow-x-hidden bg-white text-[#17151f]">
+      <div className="pointer-events-none fixed inset-0 z-0 opacity-100">
         <ParticleCanvas />
       </div>
-      <header className="shell-navbar">
-        <Link className="shell-brand" href="/dashboard">
-          <span className="brand-mark">面</span>
+      <div className="pointer-events-none fixed inset-0 z-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.64)_78%,#fff_100%)]" />
+      <header className="relative z-[1] flex items-center justify-between gap-5 border-b border-[#17151f14] bg-white/75 px-[clamp(18px,3vw,42px)] py-[18px] backdrop-blur-2xl max-[860px]:px-4 max-[860px]:py-3.5">
+        <Link className="flex items-center gap-2.5" href="/dashboard">
+          <span className="mr-2.5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#17151f] font-black text-white shadow-[0_0_22px_rgba(255,96,213,0.2),0_0_48px_rgba(71,201,255,0.18)]">面</span>
           <strong>面试雷达</strong>
         </Link>
-        <nav className="shell-navlinks" aria-label="主导航">
+        <nav className="flex items-center gap-1 max-[860px]:hidden" aria-label="主导航">
           <ExpandableTabs
             ariaLabel="主导航"
             collapseOnOutside={false}
@@ -99,45 +110,45 @@ export function WorkbenchShell({ children }: { children: React.ReactNode }) {
             tabs={tabItems}
           />
         </nav>
-        <div className="shell-auth">
-          <ButtonLink className="shell-auth__login" href="/login" neon={false} size="sm" variant="default">
+        <div className="flex items-center gap-2.5 max-[860px]:hidden">
+          <Button className="text-[#17151f]" href="/login" size="sm">
             登录
-          </ButtonLink>
-          <ButtonLink className="shell-auth__signup" href="/register" size="sm" variant="solid">
+          </Button>
+          <Button className="text-white hover:text-white" href="/register" size="sm" variant="solid">
             注册
-          </ButtonLink>
+          </Button>
         </div>
-        <details className="shell-mobile-menu">
-          <summary>菜单</summary>
-          <nav aria-label="移动端主导航">
+        <details className="hidden max-[860px]:block">
+          <summary className="cursor-pointer list-none rounded-lg border border-[#17151f1f] px-3 py-2 font-bold [&::-webkit-details-marker]:hidden">菜单</summary>
+          <nav className="absolute right-[18px] top-[62px] z-50 grid min-w-[180px] rounded-xl border border-[#17151f1a] bg-white/95 p-1.5 shadow-[0_18px_44px_rgba(23,21,31,0.12)]" aria-label="移动端主导航">
             {nav.map(([label, href]) => (
-              <Link className={pathname === href ? "is-active" : undefined} key={href} href={href}>
+              <Link className={mobileLinkClass(href)} key={href} href={href}>
                 {label}
               </Link>
             ))}
-            <Link href="/login">登录</Link>
-            <Link href="/register">注册</Link>
+            <Link className="rounded-full px-4 py-2.5 font-bold text-[#17151f]/60 hover:bg-[#17151f12] hover:text-[#17151f]" href="/login">登录</Link>
+            <Link className="rounded-full px-4 py-2.5 font-bold text-[#17151f]/60 hover:bg-[#17151f12] hover:text-[#17151f]" href="/register">注册</Link>
           </nav>
         </details>
       </header>
-      <div className="workbench-main">
-        <header className="topbar card">
-          <div>
+      <div className="relative z-[1] grid w-full content-start gap-[clamp(20px,3vw,34px)] p-[clamp(18px,2vw,30px)] max-[860px]:p-4">
+        <header className="sticky top-5 z-[3] flex min-h-16 items-center justify-between gap-4 rounded-[22px] border border-[#17151f14] bg-white/75 px-[18px] py-4 shadow-[0_18px_60px_rgba(23,21,31,0.08)] backdrop-blur-[18px] max-[860px]:static max-[860px]:flex-col max-[860px]:items-start">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Badge variant="hot">今日目标</Badge>
             <strong>
               {targets.role} · {targets.level}
             </strong>
           </div>
-          <div className="topbar-meta">
+          <div className="flex flex-wrap items-center gap-2.5 text-[0.92rem] text-[#17151f99]">
             <span>{targets.deadline}</span>
             <span>AI 接入未连接</span>
           </div>
         </header>
         {children}
       </div>
-      <nav className="bottom-nav" aria-label="移动端导航">
-        {nav.slice(0, 5).map(([label, href]) => (
-          <Link className={pathname === href ? "is-active" : undefined} key={href} href={href}>
+      <nav className="fixed bottom-3 left-3 right-3 z-10 hidden grid-cols-6 gap-1 rounded-full border border-[#17151f14] bg-white/95 p-1.5 shadow-[0_18px_60px_rgba(23,21,31,0.08)] max-[860px]:grid" aria-label="移动端导航">
+        {nav.map(([label, href]) => (
+          <Link className={cn("rounded-full px-1 py-2 text-center text-[0.72rem] font-bold text-[#17151f8f] hover:bg-[#17151f12] hover:text-[#17151f]", isActiveRoute(pathname, href) && "bg-[#17151f12] text-[#17151f] outline outline-1 outline-[#17151f14]")} key={href} href={href}>
             {label}
           </Link>
         ))}

@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { candidateQuestions, documents } from "@/lib/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { ListRow } from "@/components/ui/list-row";
-import { ButtonLink } from "@/components/ui/neon-button";
+import { Button } from "@/components/ui/shiny-button";
 import { Panel } from "@/components/ui/panel";
+import { QuestionCard } from "@/components/ui/question-card";
 
 export function generateStaticParams() {
   return documents.map((material) => ({ materialId: material.id }));
@@ -24,9 +25,9 @@ export default async function MaterialDetailPage({
   );
 
   return (
-    <main className="page-stack">
+    <main className="grid gap-[18px]">
       <Panel
-        actions={<ButtonLink href={`/generate?material=${material.id}`} variant="solid">生成候选题</ButtonLink>}
+        actions={<Button href={`/generate?material=${material.id}`} variant="solid">生成候选题</Button>}
         badge="资料解析摘要"
         badgeVariant="hot"
         description={`${material.type} · ${material.status}`}
@@ -36,24 +37,15 @@ export default async function MaterialDetailPage({
       </Panel>
 
       <Panel title="解析结果">
-        <div className="question-grid">
-          <div className="question-card">
-            <h3>知识点</h3>
-            <p>{material.knowledgePoints.join("、")}</p>
-          </div>
-          <div className="question-card">
-            <h3>项目点</h3>
-            <p>{material.projectPoints.join("、")}</p>
-          </div>
-          <div className="question-card">
-            <h3>可生成题目方向</h3>
-            <p>{material.generationDirections.join("、")}</p>
-          </div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5">
+          <QuestionCard difficulty={material.knowledgePoints.join("、")} title="知识点" />
+          <QuestionCard difficulty={material.projectPoints.join("、")} title="项目点" />
+          <QuestionCard difficulty={material.generationDirections.join("、")} title="可生成题目方向" />
         </div>
       </Panel>
 
       <Panel title="关联题目">
-        <div className="list">
+        <div className="grid gap-3.5">
           {relatedQuestions.map((question) => (
             <ListRow
               action={<Badge>{question.difficulty}</Badge>}

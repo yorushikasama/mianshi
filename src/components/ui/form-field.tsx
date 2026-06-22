@@ -1,20 +1,17 @@
 import * as React from "react";
+import { cn } from "@/lib/utils";
 
-type FormFieldProps = React.LabelHTMLAttributes<HTMLLabelElement> & {
+type FormFieldProps = React.HTMLAttributes<HTMLDivElement> & {
   label: React.ReactNode;
   hint?: React.ReactNode;
 };
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export function FormField({ label, hint, className, children, ...props }: FormFieldProps) {
   return (
-    <label className={cx("form-field-ui", className)} {...props}>
+    <div className={cn("grid gap-2 font-bold text-[#17151f]", className)} {...props}>
       <span>{label}</span>
       {children}
-      {hint ? <small>{hint}</small> : null}
-    </label>
+      {hint ? <small className="text-[var(--muted)]">{hint}</small> : null}
+    </div>
   );
 }

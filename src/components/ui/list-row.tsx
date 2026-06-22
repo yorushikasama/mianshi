@@ -1,5 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 type ListRowProps = {
   title: React.ReactNode;
@@ -10,16 +11,12 @@ type ListRowProps = {
   children?: React.ReactNode;
 };
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 function ListRowContent({ title, meta, action, children }: ListRowProps) {
   return (
     <>
-      <div>
-        <strong>{title}</strong>
-        {meta ? <span>{meta}</span> : null}
+      <div className="grid min-w-0 gap-1">
+        <strong className="text-[#17151f]">{title}</strong>
+        {meta ? <span className="text-[var(--muted)]">{meta}</span> : null}
         {children}
       </div>
       {action}
@@ -32,14 +29,25 @@ export function ListRow(props: ListRowProps) {
 
   if (href) {
     return (
-      <Link className={cx("list-row", "list-row--link", className)} href={href}>
+      <Link
+        className={cn(
+          "flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-white/70 p-3.5 text-inherit no-underline hover:border-black/20 hover:bg-white/85 max-[860px]:flex-col max-[860px]:items-start",
+          className
+        )}
+        href={href}
+      >
         <ListRowContent {...props} />
       </Link>
     );
   }
 
   return (
-    <article className={cx("list-row", className)}>
+    <article
+      className={cn(
+        "flex items-center justify-between gap-4 rounded-xl border border-[var(--border)] bg-white/70 p-3.5 max-[860px]:flex-col max-[860px]:items-start",
+        className
+      )}
+    >
       <ListRowContent {...props} />
     </article>
   );

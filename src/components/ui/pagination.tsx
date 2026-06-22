@@ -1,15 +1,12 @@
 import React from "react";
 import { usePagination } from "@/components/hooks/use-pagination";
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
+import { cn } from "@/lib/utils";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
   return (
     <nav
       aria-label="pagination"
-      className={cx("pagination", className)}
+      className={cn("mt-4 flex justify-center", className)}
       role="navigation"
       {...props}
     />
@@ -17,7 +14,7 @@ function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
 }
 
 function PaginationContent({ className, ...props }: React.ComponentProps<"ul">) {
-  return <ul className={cx("pagination-content", className)} {...props} />;
+  return <ul className={cn("m-0 flex list-none items-center gap-1 p-0", className)} {...props} />;
 }
 
 function PaginationItem(props: React.ComponentProps<"li">) {
@@ -37,7 +34,11 @@ function PaginationLink({
   return (
     <button
       aria-current={isActive ? "page" : undefined}
-      className={cx("pagination-link", isActive && "is-active", className)}
+      className={cn(
+        "inline-flex h-10 w-10 min-w-10 items-center justify-center rounded-full border border-transparent bg-transparent text-[0.92rem] font-semibold text-[#17151f] hover:bg-[#17151f0f] disabled:cursor-not-allowed disabled:opacity-40",
+        isActive && "border-[#17151f24] bg-white/80 shadow-[0_1px_2px_rgba(23,21,31,0.05)]",
+        className
+      )}
       type={type}
       {...props}
     />
@@ -62,7 +63,11 @@ function PaginationNext(props: PaginationLinkProps) {
 
 function PaginationEllipsis({ className, ...props }: React.ComponentProps<"span">) {
   return (
-    <span aria-hidden className={cx("pagination-ellipsis", className)} {...props}>
+    <span
+      aria-hidden
+      className={cn("inline-flex h-10 w-10 min-w-10 items-center justify-center rounded-full text-[0.92rem] font-semibold text-[#17151f75]", className)}
+      {...props}
+    >
       ⋯
     </span>
   );

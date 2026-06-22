@@ -72,9 +72,9 @@ for (const text of [
   "加入错题",
   "下次复习",
   "最近练习",
-  "今日复习队列",
-  "AI 接入状态",
-  "流程状态",
+  "复习压力",
+  "出题链路",
+  "最近新增候选题",
   "生成完成",
   "头像预览",
   "保存成功",
@@ -84,6 +84,15 @@ for (const text of [
   "连接成功"
 ]) {
   assert(corpus.includes(text), `missing required text: ${text}`);
+}
+
+for (const tailwindText of [
+  "@import \"tailwindcss\"",
+  "@tailwindcss/postcss",
+  "AnimatedLoadingSkeleton",
+  "max-w-4xl rounded-xl bg-white p-6"
+]) {
+  assert(corpus.includes(tailwindText) || readFileSync(join(root, "package.json"), "utf8").includes(tailwindText), `missing Tailwind migration text: ${tailwindText}`);
 }
 
 for (const routeFile of [

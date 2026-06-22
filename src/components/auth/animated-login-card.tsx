@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/neon-button";
+import { Button } from "@/components/ui/shiny-button";
 
 type AuthMode = "login" | "register" | "forgot";
 type CharacterPosition = { faceX: number; faceY: number; bodySkew: number };
@@ -162,7 +162,7 @@ function EyeBall({
 
 function SparklesIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 2L15 9H9L12 2Z" />
       <path d="M12 22L9 15H15L12 22Z" />
       <path d="M2 12L9 9V15L2 12Z" />
@@ -173,32 +173,23 @@ function SparklesIcon() {
 
 function EyeIcon({ off = false }: { off?: boolean }) {
   return off ? (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
       <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
       <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
       <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
-    </svg>
-  );
-}
-
 function GoogleIcon() {
   return (
-    <svg className="btn__icon" viewBox="0 0 24 24">
+    <svg className="mr-2 h-5 w-5 shrink-0" viewBox="0 0 24 24">
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
         fill="#4285F4"
@@ -227,8 +218,6 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
   const blackRef = useRef<HTMLDivElement>(null);
   const yellowRef = useRef<HTMLDivElement>(null);
   const orangeRef = useRef<HTMLDivElement>(null);
-  const recoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
@@ -245,8 +234,6 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
   const [isTyping, setIsTyping] = useState(false);
   const [isLookingAtEachOther, setIsLookingAtEachOther] = useState(false);
   const [isPurplePeeking, setIsPurplePeeking] = useState(false);
-  const [isLoginError, setIsLoginError] = useState(false);
-  const [isShaking, setIsShaking] = useState(false);
   const [positions, setPositions] = useState<CharacterPositions>(initialPositions);
 
   useRandomBlink(setIsPurpleBlinking);
@@ -266,7 +253,6 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
     }
 
     function move(event: MouseEvent) {
-      if (isLoginError) return;
       setPositions({
         purple: calculate(purpleRef, event),
         black: calculate(blackRef, event),
@@ -277,7 +263,7 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
 
     window.addEventListener("mousemove", move);
     return () => window.removeEventListener("mousemove", move);
-  }, [isLoginError]);
+  }, []);
 
   useEffect(() => {
     if (!isTyping) {
@@ -320,28 +306,6 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
     };
   }, [password, showPassword]);
 
-  useEffect(() => {
-    return () => {
-      if (recoverTimerRef.current) clearTimeout(recoverTimerRef.current);
-      if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
-    };
-  }, []);
-
-  function triggerLoginError() {
-    if (recoverTimerRef.current) clearTimeout(recoverTimerRef.current);
-    if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
-
-    setIsLoginError(true);
-    setIsPasswordFocused(false);
-    setIsShaking(false);
-    shakeTimerRef.current = setTimeout(() => setIsShaking(true), 350);
-
-    recoverTimerRef.current = setTimeout(() => {
-      setIsLoginError(false);
-      setIsShaking(false);
-    }, 2500);
-  }
-
   function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -350,8 +314,7 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
   }
 
   const isShowingPassword = requiresPassword && password.length > 0 && showPassword;
-  const isLookingAway = requiresPassword && isPasswordFocused && !showPassword;
-  const shakeClass = isShaking ? " shake-head" : "";
+  const isHidingPassword = requiresPassword && (isPasswordFocused || password.length > 0) && !showPassword;
   const purplePos = positions.purple;
   const blackPos = positions.black;
   const yellowPos = positions.yellow;
@@ -359,68 +322,52 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
 
   return (
     // Based on guohaolian/animatedlogin (MIT), adapted for this Next.js prototype.
-    <main className="login-page">
-      <section className="login-panel" aria-label="训练搭档">
-        <div className="login-panel__header">
-          <div className="login-panel__brand">
-            <span className="login-panel__brand-icon">
+    <main className="grid min-h-dvh overflow-hidden bg-white text-[#020817] lg:grid-cols-2 max-lg:overflow-auto">
+      <section className="relative isolate hidden h-dvh min-h-0 flex-col justify-between overflow-hidden bg-[#17151f] p-12 text-white lg:flex" aria-label="训练搭档">
+        <div className="relative z-20">
+          <div className="inline-flex items-center gap-3 text-base font-black">
+            <span className="inline-grid h-10 w-10 place-items-center rounded-2xl bg-white text-[#17151f]">
               <SparklesIcon />
             </span>
             <span>面试雷达</span>
           </div>
         </div>
 
-        <div className="login-panel__characters" aria-hidden="true">
-          <div className="character-stage">
+        <div className="relative z-20 flex h-[500px] min-h-0 items-end justify-center overflow-hidden" aria-hidden="true">
+          <div className="character-stage origin-bottom scale-[0.82] min-[1180px]:scale-100">
             <div
               className="character"
               ref={purpleRef}
               style={{
                 left: 70,
                 width: 180,
-                height: isTyping || isLookingAway ? 440 : 400,
+                height: isTyping || isHidingPassword ? 440 : 400,
                 backgroundColor: "#6C3FF5",
                 borderRadius: "10px 10px 0 0",
                 zIndex: 1,
                 transform: isShowingPassword
                   ? "skewX(0deg)"
-                  : isLookingAway
+                  : isHidingPassword
                     ? "skewX(-14deg) translateX(-20px)"
                     : isTyping
-                      ? `skewX(${purplePos.bodySkew - 12}deg) translateX(40px)`
-                      : `skewX(${purplePos.bodySkew}deg)`,
+                    ? `skewX(${purplePos.bodySkew - 12}deg) translateX(40px)`
+                    : `skewX(${purplePos.bodySkew}deg)`,
                 transformOrigin: "bottom center"
               }}
             >
               <span
-                className={`character__eyes flex gap-8${shakeClass}`}
+                className="character__eyes flex gap-8"
                 style={{
-                  left: isLoginError
-                    ? 30
-                    : isLookingAway
-                      ? 20
-                      : isShowingPassword
-                        ? 20
-                        : isLookingAtEachOther
-                          ? 55
-                          : 45 + purplePos.faceX,
-                  top: isLoginError
-                    ? 55
-                    : isLookingAway
-                      ? 25
-                      : isShowingPassword
-                        ? 35
-                        : isLookingAtEachOther
-                          ? 65
-                          : 40 + purplePos.faceY
+                  left: isShowingPassword ? 20 : isLookingAtEachOther ? 55 : 45 + purplePos.faceX,
+                  top: isHidingPassword ? 25 : isShowingPassword ? 35 : isLookingAtEachOther ? 65 : 40 + purplePos.faceY
                 }}
               >
                 <EyeBall
                   forceLookX={
-                    isLoginError ? -3 : isLookingAway ? -5 : isShowingPassword ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined
+                    isHidingPassword ? -5 : isShowingPassword ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined
                   }
                   forceLookY={
-                    isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined
+                    isHidingPassword ? -5 : isShowingPassword ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined
                   }
                   isBlinking={isPurpleBlinking}
                   maxDistance={5}
@@ -429,10 +376,10 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
                 />
                 <EyeBall
                   forceLookX={
-                    isLoginError ? -3 : isLookingAway ? -5 : isShowingPassword ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined
+                    isHidingPassword ? -5 : isShowingPassword ? (isPurplePeeking ? 4 : -4) : isLookingAtEachOther ? 3 : undefined
                   }
                   forceLookY={
-                    isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined
+                    isHidingPassword ? -5 : isShowingPassword ? (isPurplePeeking ? 5 : -4) : isLookingAtEachOther ? 4 : undefined
                   }
                   isBlinking={isPurpleBlinking}
                   maxDistance={5}
@@ -454,50 +401,34 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
                 zIndex: 2,
                 transform: isShowingPassword
                   ? "skewX(0deg)"
-                  : isLookingAway
+                  : isHidingPassword
                     ? "skewX(12deg) translateX(-10px)"
-                    : isLookingAtEachOther
-                      ? `skewX(${blackPos.bodySkew * 1.5 + 10}deg) translateX(20px)`
-                      : isTyping
-                        ? `skewX(${blackPos.bodySkew * 1.5}deg)`
-                        : `skewX(${blackPos.bodySkew}deg)`,
+                  : isLookingAtEachOther
+                    ? `skewX(${blackPos.bodySkew * 1.5 + 10}deg) translateX(20px)`
+                    : isTyping
+                      ? `skewX(${blackPos.bodySkew * 1.5}deg)`
+                      : `skewX(${blackPos.bodySkew}deg)`,
                 transformOrigin: "bottom center"
               }}
             >
               <span
-                className={`character__eyes flex gap-6${shakeClass}`}
+                className="character__eyes flex gap-6"
                 style={{
-                  left: isLoginError
-                    ? 15
-                    : isLookingAway
-                      ? 10
-                      : isShowingPassword
-                        ? 10
-                        : isLookingAtEachOther
-                          ? 32
-                          : 26 + blackPos.faceX,
-                  top: isLoginError
-                    ? 40
-                    : isLookingAway
-                      ? 20
-                      : isShowingPassword
-                        ? 28
-                        : isLookingAtEachOther
-                          ? 12
-                          : 32 + blackPos.faceY
+                  left: isHidingPassword ? 10 : isShowingPassword ? 10 : isLookingAtEachOther ? 32 : 26 + blackPos.faceX,
+                  top: isHidingPassword ? 20 : isShowingPassword ? 28 : isLookingAtEachOther ? 12 : 32 + blackPos.faceY
                 }}
               >
                 <EyeBall
-                  forceLookX={isLoginError ? -3 : isLookingAway ? -4 : isShowingPassword ? -4 : isLookingAtEachOther ? 0 : undefined}
-                  forceLookY={isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? -4 : isLookingAtEachOther ? -4 : undefined}
+                  forceLookX={isHidingPassword ? -4 : isShowingPassword ? -4 : isLookingAtEachOther ? 0 : undefined}
+                  forceLookY={isHidingPassword ? -5 : isShowingPassword ? -4 : isLookingAtEachOther ? -4 : undefined}
                   isBlinking={isBlackBlinking}
                   maxDistance={4}
                   pupilSize={6}
                   size={16}
                 />
                 <EyeBall
-                  forceLookX={isLoginError ? -3 : isLookingAway ? -4 : isShowingPassword ? -4 : isLookingAtEachOther ? 0 : undefined}
-                  forceLookY={isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? -4 : isLookingAtEachOther ? -4 : undefined}
+                  forceLookX={isHidingPassword ? -4 : isShowingPassword ? -4 : isLookingAtEachOther ? 0 : undefined}
+                  forceLookY={isHidingPassword ? -5 : isShowingPassword ? -4 : isLookingAtEachOther ? -4 : undefined}
                   isBlinking={isBlackBlinking}
                   maxDistance={4}
                   pupilSize={6}
@@ -521,22 +452,15 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
               }}
             >
               <span
-                className={`character__eyes character__eyes--fast flex gap-8${shakeClass}`}
+                className="character__eyes character__eyes--fast flex gap-8"
                 style={{
-                  left: isLoginError ? 60 : isLookingAway ? 50 : isShowingPassword ? 50 : 82 + orangePos.faceX,
-                  top: isLoginError ? 95 : isLookingAway ? 75 : isShowingPassword ? 85 : 90 + orangePos.faceY
+                  left: isHidingPassword ? 50 : isShowingPassword ? 50 : 82 + orangePos.faceX,
+                  top: isHidingPassword ? 75 : isShowingPassword ? 85 : 90 + orangePos.faceY
                 }}
               >
-                <Pupil forceLookX={isLoginError ? -3 : isLookingAway || isShowingPassword ? -5 : undefined} forceLookY={isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? -4 : undefined} />
-                <Pupil forceLookX={isLoginError ? -3 : isLookingAway || isShowingPassword ? -5 : undefined} forceLookY={isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? -4 : undefined} />
+                <Pupil forceLookX={isHidingPassword || isShowingPassword ? -5 : undefined} forceLookY={isHidingPassword ? -5 : isShowingPassword ? -4 : undefined} />
+                <Pupil forceLookX={isHidingPassword || isShowingPassword ? -5 : undefined} forceLookY={isHidingPassword ? -5 : isShowingPassword ? -4 : undefined} />
               </span>
-              <span
-                className={`orange-mouth${isLoginError ? " visible" : ""}${shakeClass}`}
-                style={{
-                  left: 80 + orangePos.faceX,
-                  top: 130
-                }}
-              />
             </div>
 
             <div
@@ -554,66 +478,61 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
               }}
             >
               <span
-                className={`character__eyes character__eyes--fast flex gap-6${shakeClass}`}
+                className="character__eyes character__eyes--fast flex gap-6"
                 style={{
-                  left: isLoginError ? 35 : isLookingAway ? 20 : isShowingPassword ? 20 : 52 + yellowPos.faceX,
-                  top: isLoginError ? 45 : isLookingAway ? 30 : isShowingPassword ? 35 : 40 + yellowPos.faceY
+                  left: isHidingPassword ? 20 : isShowingPassword ? 20 : 52 + yellowPos.faceX,
+                  top: isHidingPassword ? 30 : isShowingPassword ? 35 : 40 + yellowPos.faceY
                 }}
               >
-                <Pupil forceLookX={isLoginError ? -3 : isLookingAway || isShowingPassword ? -5 : undefined} forceLookY={isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? -4 : undefined} />
-                <Pupil forceLookX={isLoginError ? -3 : isLookingAway || isShowingPassword ? -5 : undefined} forceLookY={isLoginError ? 4 : isLookingAway ? -5 : isShowingPassword ? -4 : undefined} />
+                <Pupil forceLookX={isHidingPassword || isShowingPassword ? -5 : undefined} forceLookY={isHidingPassword ? -5 : isShowingPassword ? -4 : undefined} />
+                <Pupil forceLookX={isHidingPassword || isShowingPassword ? -5 : undefined} forceLookY={isHidingPassword ? -5 : isShowingPassword ? -4 : undefined} />
               </span>
               <span
-                className={`character__mouth${shakeClass}`}
+                className="character__mouth"
                 style={{
-                  left: isLoginError ? 30 : isLookingAway ? 15 : isShowingPassword ? 10 : 40 + yellowPos.faceX,
-                  top: isLoginError ? 92 : isLookingAway ? 78 : isShowingPassword ? 88 : 88 + yellowPos.faceY,
-                  transform: isLoginError ? "rotate(-8deg)" : "rotate(0deg)"
+                  left: isHidingPassword ? 15 : isShowingPassword ? 10 : 40 + yellowPos.faceX,
+                  top: isHidingPassword ? 78 : isShowingPassword ? 88 : 88 + yellowPos.faceY
                 }}
               />
             </div>
           </div>
         </div>
-
-        <span className="login-panel__grid" />
-        <span className="login-panel__blur-top" />
-        <span className="login-panel__blur-bottom" />
       </section>
 
-      <section className="login-form-section" aria-label={current.title}>
-        <div className="login-form-container">
-          <div className="login-form__mobile-brand">
-            <span className="login-form__mobile-brand-icon">
+      <section className="flex h-dvh min-h-0 items-center justify-center overflow-auto bg-white p-8 max-sm:px-5" aria-label={current.title}>
+        <div className="w-full max-w-[420px]">
+          <div className="mb-12 hidden items-center justify-center gap-3 font-black max-lg:flex">
+            <span className="inline-grid h-10 w-10 place-items-center rounded-2xl bg-[#17151f] text-white">
               <SparklesIcon />
             </span>
             <span>面试雷达</span>
           </div>
 
-          <div className="login-form__header">
-            <h1 className="login-form__title">{current.title}</h1>
-            <p className="login-form__subtitle">{current.subtitle}</p>
+          <div className="mb-10 text-center">
+            <h1 className="m-0 text-[2rem] font-black leading-tight tracking-normal text-[#020817]">{current.title}</h1>
+            <p className="mt-2 text-[0.95rem] text-[#667085]">{current.subtitle}</p>
           </div>
 
-          <form className="login-form" noValidate onSubmit={submitAuth}>
+          <form className="grid gap-4" noValidate onSubmit={submitAuth}>
             {mode === "register" ? (
-              <label className="form-field">
-                <span className="label">用户名</span>
+              <div className="grid gap-2">
+                <span className="text-sm font-semibold text-[#344054]">用户名</span>
                 <input
                   autoComplete="username"
-                  className="input input--lg input--soft-border"
+                  className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
                   onChange={(event) => setUsername(event.target.value)}
                   placeholder="输入你的用户名"
                   type="text"
                   value={username}
                 />
-              </label>
+              </div>
             ) : null}
 
-            <label className="form-field">
-              <span className="label">邮箱</span>
+            <div className="grid gap-2">
+              <span className="text-sm font-semibold text-[#344054]">邮箱</span>
               <input
                 autoComplete="off"
-                className="input input--lg input--soft-border"
+                className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
                 onBlur={() => setIsTyping(false)}
                 onChange={(event) => setEmail(event.target.value)}
                 onFocus={() => setIsTyping(true)}
@@ -621,15 +540,15 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
                 type="email"
                 value={email}
               />
-            </label>
+            </div>
 
             {mode === "register" ? (
-              <label className="form-field">
-                <span className="label">邮箱验证码</span>
-                <span className="verification-field">
+              <div className="grid gap-2">
+                <span className="text-sm font-semibold text-[#344054]">邮箱验证码</span>
+                <span className="grid grid-cols-[1fr_auto] gap-2.5 max-sm:grid-cols-1">
                   <input
                     autoComplete="one-time-code"
-                    className="input input--lg input--soft-border"
+                    className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
                     inputMode="numeric"
                     onChange={(event) => setEmailCode(event.target.value)}
                     placeholder="输入 6 位验证码"
@@ -637,26 +556,24 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
                     value={emailCode}
                   />
                   <Button
-                    className="verification-button"
-                    neon={false}
+                    className="min-h-12 w-full"
                     onClick={() => setIsCodeSent(true)}
                     size="lg"
                     type="button"
-                    variant="default"
                   >
                     {isCodeSent ? "已发送" : "获取验证码"}
                   </Button>
                 </span>
-              </label>
+              </div>
             ) : null}
 
             {requiresPassword ? (
-              <label className="form-field">
-                <span className="label">密码</span>
-                <span className="form-field__control">
+              <div className="grid gap-2">
+                <span className="text-sm font-semibold text-[#344054]">密码</span>
+                <span className="relative">
                   <input
                     autoComplete={mode === "register" ? "new-password" : "current-password"}
-                    className="input input--lg input--with-icon input--soft-border"
+                    className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 pr-12 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
                     onBlur={() => setIsPasswordFocused(false)}
                     onChange={(event) => setPassword(event.target.value)}
                     onFocus={() => setIsPasswordFocused(true)}
@@ -666,59 +583,59 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
                   />
                   <button
                     aria-label={showPassword ? "Hide password" : "Show password"}
-                    className="password-toggle"
+                    className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[#667085] transition hover:bg-[#f2f4f7] hover:text-[#101828]"
                     onClick={() => setShowPassword((value) => !value)}
                     type="button"
                   >
                     <EyeIcon off={showPassword} />
                   </button>
                 </span>
-              </label>
+              </div>
             ) : null}
 
             {mode === "register" ? (
-              <label className="form-field">
-                <span className="label">重复密码</span>
+              <div className="grid gap-2">
+                <span className="text-sm font-semibold text-[#344054]">重复密码</span>
                 <input
                   autoComplete="new-password"
-                  className="input input--lg input--soft-border"
+                  className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   placeholder="再次输入密码"
                   type="password"
                   value={confirmPassword}
                 />
-              </label>
+              </div>
             ) : null}
 
             {mode === "login" ? (
-              <div className="form-row">
-                <label className="form-row__checkbox">
-                  <input className="checkbox" defaultChecked type="checkbox" />
-                  <span className="label label--normal label--clickable">记住 30 天</span>
+              <div className="flex items-center justify-between gap-4 max-sm:items-start max-sm:flex-col">
+                <label className="!inline-flex items-center gap-2 text-sm font-medium text-[#344054]">
+                  <input className="!h-4 !w-4 shrink-0 !rounded !p-0 accent-[#17151f]" defaultChecked type="checkbox" />
+                  <span>记住 30 天</span>
                 </label>
-                <Link className="form-link" href="/forgot-password">
+                <Link className="text-sm font-bold text-[#17151f] hover:underline" href="/forgot-password">
                   找回密码
                 </Link>
               </div>
             ) : null}
 
-            {error ? <div className="form-error">{error}</div> : null}
+            {error ? <div className="m-0 rounded-xl border border-red-300 bg-red-50 px-3 py-2.5 font-bold text-red-700">{error}</div> : null}
 
-            <Button className="auth-action-button" disabled={isLoading} size="lg" type="submit" variant="solid">
+            <Button className="min-h-12 w-full" disabled={isLoading} size="lg" type="submit" variant="solid">
               {isLoading ? "处理中..." : current.action}
             </Button>
           </form>
 
           {mode === "login" ? (
-            <div className="social-login">
-              <Button className="auth-action-button" neon={false} size="lg" type="button">
+            <div className="mt-4">
+              <Button className="min-h-12 w-full" size="lg" type="button">
                 <GoogleIcon />
                 使用 Google 登录
               </Button>
             </div>
           ) : null}
 
-          <p className="signup-link">
+          <p className="mt-8 text-center text-sm text-[#667085] [&_a]:font-bold [&_a]:text-[#17151f] [&_a]:hover:underline">
             {current.switchText} <Link href={current.switchHref}>{current.switchLink}</Link>
           </p>
         </div>

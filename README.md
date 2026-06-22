@@ -11,6 +11,8 @@ npm run smoke
 npm run build
 ```
 
+Tailwind CSS v4 已通过 `postcss.config.mjs` 和 `src/app/globals.css` 接入。
+
 ## 目录
 
 ```text

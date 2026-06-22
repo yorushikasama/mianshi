@@ -211,5 +211,5 @@ export function ParticleCanvas({
     };
   }, [maxParticles, particleSizeMax, particleSizeMin, speedScale]);
 
-  return <canvas className="particle-canvas" ref={canvasRef} aria-hidden="true" />;
+  return <canvas className="pointer-events-none absolute inset-0 h-full w-full" ref={canvasRef} aria-hidden="true" />;
 }

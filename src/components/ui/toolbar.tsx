@@ -1,11 +1,8 @@
 import * as React from "react";
+import { cn } from "@/lib/utils";
 
 type ToolbarProps = React.HTMLAttributes<HTMLDivElement>;
 
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 export function Toolbar({ className, ...props }: ToolbarProps) {
-  return <div className={cx("toolbar", className)} {...props} />;
+  return <div className={cn("relative z-40 mt-4 grid grid-cols-[repeat(auto-fit,minmax(156px,1fr))] items-center gap-3", className)} {...props} />;
 }

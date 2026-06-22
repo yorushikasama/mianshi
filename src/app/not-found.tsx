@@ -1,5 +1,5 @@
-import { Ghost404Page } from "@/components/ui/ghost-404-page";
+import PageNotFound from "@/components/ui/page-not-found";
 
 export default function NotFound() {
-  return <Ghost404Page />;
+  return <PageNotFound />;
 }

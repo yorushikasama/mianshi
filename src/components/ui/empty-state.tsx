@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Button, type ButtonProps } from "@/components/ui/neon-button";
+import { Button, type ButtonProps } from "@/components/ui/shiny-button";
+import { cn } from "@/lib/utils";
 
 type EmptyStateProps = React.HTMLAttributes<HTMLDivElement> & {
   title: React.ReactNode;
@@ -7,10 +8,6 @@ type EmptyStateProps = React.HTMLAttributes<HTMLDivElement> & {
   action?: React.ReactNode;
   actionProps?: ButtonProps;
 };
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
 
 export function EmptyState({
   title,
@@ -21,9 +18,9 @@ export function EmptyState({
   ...props
 }: EmptyStateProps) {
   return (
-    <div className={cx("empty-state", className)} {...props}>
-      <strong>{title}</strong>
-      {description ? <p>{description}</p> : null}
+    <div className={cn("grid min-h-44 justify-items-center gap-2.5 p-8 text-center", className)} {...props}>
+      <strong className="text-[#17151f]">{title}</strong>
+      {description ? <p className="m-0 max-w-md text-[var(--muted)]">{description}</p> : null}
       {action ? <Button {...actionProps}>{action}</Button> : null}
     </div>
   );
