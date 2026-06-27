@@ -1,11 +1,17 @@
+import { revalidatePath } from "next/cache";
 import { candidateQuestions, documents, todayTasks, weakAreas } from "@/lib/mock-data";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import { ListRow } from "@/components/ui/list-row";
 import { Button } from "@/components/ui/shiny-button";
 import { Panel } from "@/components/ui/panel";
 import { QuestionCard } from "@/components/ui/question-card";
 import { PracticeTrendChart, WeakAreaBarChart } from "@/components/dashboard/dashboard-charts";
+import { Textarea } from "@/components/ui/textarea";
+import { getCurrentInterviewTarget, parseInterviewTargetInput, updateInterviewTarget } from "@/lib/interview-targets";
+import { requireUserSession } from "@/lib/server-session";
 
 const reviewQueue = [
   { title: "Next.js App Router", meta: "问答题 · 10 分钟", href: "/practice/next-app-router", state: "复习到期" },
@@ -34,7 +40,42 @@ const pipeline = [
   { label: "今日待练", value: todayTasks.length, href: "/practice" }
 ];
 
-export default function DashboardPage() {
+function interviewDateLabel(interviewDate: string | null) {
+  if (!interviewDate) {
+    return "未设置";
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(`${interviewDate}T00:00:00`);
+  const days = Math.ceil((target.getTime() - today.getTime()) / 86400000);
+  if (days === 0) {
+    return "今天";
+  }
+  return days > 0 ? `${days} 天后` : `已过 ${Math.abs(days)} 天`;
+}
+
+export default async function DashboardPage() {
+  const session = await requireUserSession();
+  const interviewTarget = await getCurrentInterviewTarget(session.user.id);
+  const targetStack = interviewTarget.stack.join("、");
+
+  async function saveInterviewTarget(formData: FormData) {
+    "use server";
+
+    const session = await requireUserSession();
+    await updateInterviewTarget(
+      session.user.id,
+      parseInterviewTargetInput({
+        role: formData.get("role"),
+        level: formData.get("level"),
+        stack: formData.get("stack"),
+        interviewDate: formData.get("interviewDate")
+      })
+    );
+    revalidatePath("/dashboard");
+    revalidatePath("/generate");
+  }
+
   const focusTask = todayTasks[1] ?? todayTasks[0];
   const dueReviews = reviewQueue.filter((item) => item.state === "复习到期").length;
   const averageWeakScore = Math.round(
@@ -74,6 +115,38 @@ export default function DashboardPage() {
           ))}
         </div>
       </section>
+
+      <Panel
+        actions={<Button href="/generate">去 AI 生成页调整</Button>}
+        badge="当前面试目标"
+        badgeVariant="hot"
+        description="目标会影响出题方向、复习优先级和 Dashboard 推荐任务。"
+        title={`${interviewTarget.level} ${interviewTarget.role}`}
+        wide
+      >
+        <form action={saveInterviewTarget} className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="grid gap-3 md:grid-cols-[minmax(180px,0.7fr)_minmax(180px,0.7fr)_minmax(0,1fr)]">
+            <FormField label="岗位">
+              <Input defaultValue={interviewTarget.role} name="role" />
+            </FormField>
+            <FormField label="级别">
+              <Input defaultValue={interviewTarget.level} name="level" />
+            </FormField>
+            <FormField label="面试时间">
+              <Input defaultValue={interviewTarget.interviewDate ?? ""} name="interviewDate" type="date" />
+            </FormField>
+            <FormField className="md:col-span-3" label="重点技术">
+              <Textarea className="min-h-20" defaultValue={targetStack} name="stack" />
+            </FormField>
+          </div>
+          <div className="rounded-2xl border border-[#17151f12] bg-[#17151f] p-4 text-white">
+            <span className="text-xs font-bold text-white/60">倒计时</span>
+            <strong className="mt-1 block text-3xl leading-none">{interviewDateLabel(interviewTarget.interviewDate)}</strong>
+            <span className="mt-2 block text-sm text-white/70">{interviewTarget.level} 面试准备中</span>
+            <Button className="mt-4 w-full" type="submit" variant="solid">保存目标</Button>
+          </div>
+        </form>
+      </Panel>
 
       <section className="grid gap-[clamp(18px,2.5vw,28px)] xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <Panel

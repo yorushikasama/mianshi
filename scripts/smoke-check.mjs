@@ -41,6 +41,11 @@ for (const text of [
   "选择题",
   "正确答案",
   "按题练习",
+  "练习历史",
+  "复习计划",
+  "当前面试目标",
+  "生成记录",
+  "STAR/行为题",
   "单选答案",
   "答案解析",
   "生成中",
@@ -101,6 +106,8 @@ for (const routeFile of [
   "src/app/(app)/practice/result/page.tsx",
   "src/app/(app)/practice/[questionId]/page.tsx",
   "src/app/(app)/practice/[questionId]/result/page.tsx",
+  "src/app/(app)/practice/history/page.tsx",
+  "src/app/(app)/practice/review/page.tsx",
   "src/app/(app)/settings/profile/page.tsx",
   "src/app/(app)/settings/email/page.tsx",
   "src/app/(app)/settings/password/page.tsx",
@@ -114,8 +121,10 @@ for (const banned of ["支付", "充值", "套餐", "localhost:3000"]) {
 }
 
 for (const table of [
-  "users",
-  "sessions",
+  "\"user\"",
+  "\"session\"",
+  "\"account\"",
+  "\"verification\"",
   "interview_targets",
   "source_documents",
   "questions",
@@ -125,5 +134,8 @@ for (const table of [
 ]) {
   assert(migration.includes(`create table ${table}`), `missing table: ${table}`);
 }
+
+assert(!migration.includes("create table users"), "legacy users table should not exist");
+assert(!migration.includes("references users"), "business tables should reference Better Auth user table");
 
 console.log("smoke check passed");

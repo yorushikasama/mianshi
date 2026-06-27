@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { FormField } from "@/components/ui/form-field";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/shiny-button";
 import { Panel } from "@/components/ui/panel";
+import { Textarea } from "@/components/ui/textarea";
 import { Toolbar } from "@/components/ui/toolbar";
 import { cn } from "@/lib/utils";
 
@@ -44,31 +47,34 @@ export function PracticeRunner({ question }: { question: Question }) {
         title={question.title}
       >
         {isChoice ? (
-          <div className="grid gap-2.5" aria-label="单选答案">
+          <RadioGroup
+            aria-label="单选答案"
+            disabled={submitted}
+            onValueChange={setSelected}
+            value={selected}
+          >
             {(question.options ?? []).map((option) => (
-              <label
+              <div
                 key={option.key}
+                onClick={() => {
+                  if (!submitted) setSelected(option.key);
+                }}
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-2xl border border-[#17151f14] bg-white/60 px-4 py-4 leading-[1.55] text-[#17151fc7] transition hover:border-[#17151f33] hover:bg-white",
                   selected === option.key && "border-[#17151f] bg-[#17151f08] text-[#17151f]"
                 )}
               >
-                <input
-                  className="mt-1 w-auto"
-                  checked={selected === option.key}
-                  disabled={submitted}
-                  name="mock-choice"
-                  onChange={() => setSelected(option.key)}
-                  type="radio"
-                />
-                <span>{option.key}. {option.text}</span>
-              </label>
+                <RadioGroupItem id={`${question.id}-${option.key}`} value={option.key} />
+                <Label as="span" className="cursor-pointer text-base font-semibold leading-[1.55] text-inherit">
+                  {option.key}. {option.text}
+                </Label>
+              </div>
             ))}
-          </div>
+          </RadioGroup>
         ) : (
           <>
             <FormField label="先写你的回答">
-              <textarea
+              <Textarea
                 className="min-h-56 text-base leading-7"
                 value={answer}
                 onChange={(event) => setAnswer(event.target.value)}

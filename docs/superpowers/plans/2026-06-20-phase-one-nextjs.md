@@ -22,7 +22,7 @@
 
 - [x] Create a minimal Next.js app at the repository root.
 - [x] Add global tokens matching the anime learning workbench style.
-- [x] Make `/` redirect to `/login`.
+- [x] Make `/` redirect to `/dashboard`; pure frontend stage does not block login.
 
 ### Task 2: Anime Auth Pages
 

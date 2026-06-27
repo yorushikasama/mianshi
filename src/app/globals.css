@@ -74,41 +74,18 @@ button {
   cursor: pointer;
 }
 
-:focus-visible {
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
   outline: 3px solid oklch(0.78 0.16 345 / 0.65);
   outline-offset: 2px;
 }
 
-label:not([class]) {
-  display: grid;
-  gap: 8px;
-  color: var(--ink);
-  font-weight: 750;
-}
-
-input:not([type="checkbox"]):not([type="radio"]),
-textarea,
-select {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 14px;
-  background: var(--surface);
-  color: var(--ink);
-}
-
-textarea:not([class]) {
-  min-height: 240px;
-}
-
 textarea {
   resize: vertical;
-}
-
-
-
-input:not([type="checkbox"]):not([type="radio"])::placeholder {
-  color: oklch(0.54 0.035 260);
 }
 
 

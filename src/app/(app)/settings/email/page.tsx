@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/shiny-button";
 import { Panel } from "@/components/ui/panel";
 import { SettingsSubpageHeader } from "@/components/ui/settings-section";
@@ -41,10 +42,10 @@ export default function EmailSettingsPage() {
           </div>
           <div className="relative z-40 grid max-w-xl gap-3">
             <FormField label="新邮箱">
-              <input autoComplete="email" placeholder="new@example.com" type="email" />
+              <Input autoComplete="email" placeholder="new@example.com" type="email" />
             </FormField>
             <FormField label="验证码">
-              <input autoComplete="one-time-code" inputMode="numeric" placeholder="输入 6 位验证码" />
+              <Input autoComplete="one-time-code" inputMode="numeric" placeholder="输入 6 位验证码" />
             </FormField>
           </div>
           {message ? <p className="m-0 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 font-bold text-emerald-700">{message}</p> : null}

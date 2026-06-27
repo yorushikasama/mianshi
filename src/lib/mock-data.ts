@@ -62,6 +62,17 @@ export const candidateQuestions = [
     answerOption: "B",
     mockSelectedOption: "C",
     explanation: "偶发超时要先区分核心链路和非核心模块，再组合重试、缓存、降级展示和监控，不能只靠无限重试或拉长超时。"
+  },
+  {
+    id: "star-conflict",
+    type: "behavior_star",
+    typeLabel: "STAR/行为题",
+    title: "讲一次你和后端或产品对方案有分歧时，是怎么推进的？",
+    source: "行为面试",
+    difficulty: "中等",
+    tags: ["STAR", "协作", "沟通"],
+    answer: "按 STAR 回答：先说明项目背景和分歧点，再讲自己负责的目标、如何用数据和原型推动对齐，最后补充结果和复盘。",
+    spokenAnswer: "我会先说清楚冲突不是人和人的问题，而是目标和约束不同。然后讲我怎么把争议拆成可验证的问题，最后用结果说明推进方式有效。"
   }
 ];
 

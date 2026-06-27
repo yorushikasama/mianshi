@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownSelect } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/shiny-button";
 import { NumberedPagination } from "@/components/ui/pagination";
 import { Panel } from "@/components/ui/panel";
+import { Textarea } from "@/components/ui/textarea";
 import { Toolbar } from "@/components/ui/toolbar";
 
 type Question = {
@@ -87,11 +90,12 @@ export function QuestionsList({ questions }: { questions: Question[] }) {
   return (
     <main className="grid gap-[18px]">
       <Panel badge="题库" badgeVariant="hot" title="题库概览">
-        <div className="grid gap-3 sm:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {[
             ["总题数", questions.length],
             ["问答题", questions.filter((item) => item.type === "qa").length],
             ["选择题", questions.filter((item) => item.type === "single_choice").length],
+            ["STAR/行为题", questions.filter((item) => item.type === "behavior_star").length],
             ["待复习", 1],
             ["薄弱点题", questions.filter((item) => item.source === "补薄弱点").length]
           ].map(([label, value]) => (
@@ -141,7 +145,8 @@ export function QuestionsList({ questions }: { questions: Question[] }) {
               options={[
                 { label: "全部题型", value: "all" },
                 { label: "问答题", value: "qa" },
-                { label: "选择题", value: "single_choice" }
+                { label: "选择题", value: "single_choice" },
+                { label: "STAR/行为题", value: "behavior_star" }
               ]}
             />
           </Toolbar>
@@ -163,11 +168,10 @@ export function QuestionsList({ questions }: { questions: Question[] }) {
                 return (
                   <article className="grid gap-3 rounded-[18px] border border-[#17151f14] bg-white/70 p-4" key={question.id}>
                     <div className="grid grid-cols-[28px_minmax(0,1fr)_minmax(220px,auto)_120px] items-start gap-4 max-[920px]:grid-cols-[28px_minmax(0,1fr)]">
-                      <input
-                        className="mt-1 h-4 w-4 shrink-0 accent-[#17151f]"
+                      <Checkbox
+                        className="mt-1"
                         checked={selectedIds.includes(question.id)}
-                        onChange={() => toggleSelected(question.id)}
-                        type="checkbox"
+                        onCheckedChange={() => toggleSelected(question.id)}
                       />
                       <div className="grid min-w-0 gap-1">
                         <Link className="font-black text-[#17151f] hover:underline" href={`/questions/${question.id}`}>{question.title}</Link>
@@ -192,16 +196,16 @@ export function QuestionsList({ questions }: { questions: Question[] }) {
                     {isEditing ? (
                       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 border-t border-[#17151f14] pt-3">
                         <FormField label="题干">
-                          <input defaultValue={question.title} />
+                          <Input defaultValue={question.title} />
                         </FormField>
                         <FormField label="标签">
-                          <input defaultValue={question.tags.join("、")} />
+                          <Input defaultValue={question.tags.join("、")} />
                         </FormField>
                         <FormField label={question.type === "single_choice" ? "正确选项" : "参考答案"}>
                           {question.type === "single_choice" ? (
-                            <input defaultValue={question.answerOption ?? ""} />
+                            <Input defaultValue={question.answerOption ?? ""} />
                           ) : (
-                            <textarea className="min-h-28" defaultValue={question.answer ?? ""} />
+                            <Textarea className="min-h-28" defaultValue={question.answer ?? ""} />
                           )}
                         </FormField>
                         <div className="self-end">

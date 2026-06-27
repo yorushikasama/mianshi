@@ -3,7 +3,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/shiny-button";
+import { authClient } from "@/lib/auth-client";
 
 type AuthMode = "login" | "register" | "forgot";
 type CharacterPosition = { faceX: number; faceY: number; bodySkew: number };
@@ -19,17 +22,17 @@ const initialPositions: CharacterPositions = {
 const copy = {
   login: {
     title: "欢迎回来！",
-    subtitle: "请输入你的登录信息",
+    subtitle: "使用用户名或邮箱登录",
     action: "登录",
     switchText: "还没有账号？",
     switchHref: "/register",
     switchLink: "注册"
   },
   register: {
-    title: "创建账号",
+    title: "创建一个账户",
     subtitle: "开启你的面试训练室",
     action: "注册",
-    switchText: "已经有账号？",
+    switchText: "已有账号？",
     switchHref: "/login",
     switchLink: "登录"
   },
@@ -187,29 +190,6 @@ function EyeIcon({ off = false }: { off?: boolean }) {
   );
 }
 
-function GoogleIcon() {
-  return (
-    <svg className="mr-2 h-5 w-5 shrink-0" viewBox="0 0 24 24">
-      <path
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-        fill="#4285F4"
-      />
-      <path
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-        fill="#34A853"
-      />
-      <path
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A11.96 11.96 0 0 0 1 12c0 1.94.46 3.77 1.18 5.07l3.66-2.84v-.14z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-        fill="#EA4335"
-      />
-    </svg>
-  );
-}
-
 export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const requiresPassword = mode !== "forgot";
@@ -220,13 +200,17 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
   const orangeRef = useRef<HTMLDivElement>(null);
 
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   const [isPurpleBlinking, setIsPurpleBlinking] = useState(false);
@@ -306,11 +290,75 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
     };
   }, [password, showPassword]);
 
-  function submitAuth(event: FormEvent<HTMLFormElement>) {
+  async function sendRegisterCode() {
+    if (mode === "register" && password !== confirmPassword) {
+      setError("两次输入的密码不一致");
+      return false;
+    }
+
+    setIsLoading(true);
+    const result = isCodeSent
+      ? await authClient.emailOtp.sendVerificationOtp({ email, type: "email-verification" })
+      : await authClient.signUp.email({ email, password, name: username || email, username });
+
+    if (result.error) {
+      setError(result.error.message || "操作失败，请稍后重试");
+      setIsLoading(false);
+      return false;
+    }
+
+    setIsCodeSent(true);
+    setMessage("验证码已发送，请查看邮箱");
+    setIsLoading(false);
+    return true;
+  }
+
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setMessage("");
+
+    if (mode === "register") {
+      if (!isCodeSent) {
+        await sendRegisterCode();
+        return;
+      }
+
+      if (!emailCode.trim()) {
+        setError("请输入邮箱验证码");
+        return;
+      }
+
+      setIsLoading(true);
+      const result = await authClient.emailOtp.verifyEmail({ email, otp: emailCode.trim() });
+      if (result.error) {
+        setError(result.error.message || "验证码校验失败");
+        setIsLoading(false);
+        return;
+      }
+
+      router.push("/dashboard");
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => router.push(mode === "forgot" ? "/login" : "/dashboard"), 300);
+    const loginId = identifier.trim();
+    const result = mode === "login"
+      ? loginId.includes("@")
+        ? await authClient.signIn.email({ email: loginId, password })
+        : await authClient.signIn.username({ username: loginId, password })
+      : await authClient.requestPasswordReset({
+          email,
+          redirectTo: `${window.location.origin}/login`
+        });
+
+    if (result.error) {
+      setError(result.error.message || "操作失败，请稍后重试");
+      setIsLoading(false);
+      return;
+    }
+
+    router.push(mode === "forgot" ? "/login" : "/dashboard");
   }
 
   const isShowingPassword = requiresPassword && password.length > 0 && showPassword;
@@ -499,27 +547,35 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
         </div>
       </section>
 
-      <section className="flex h-dvh min-h-0 items-center justify-center overflow-auto bg-white p-8 max-sm:px-5" aria-label={current.title}>
+      <section className="flex h-dvh min-h-0 items-center justify-center overflow-auto bg-white px-8 py-6 max-sm:px-5" aria-label={current.title}>
         <div className="w-full max-w-[420px]">
-          <div className="mb-12 hidden items-center justify-center gap-3 font-black max-lg:flex">
+          <div className="mb-8 hidden items-center justify-center gap-3 font-black max-lg:flex">
             <span className="inline-grid h-10 w-10 place-items-center rounded-2xl bg-[#17151f] text-white">
               <SparklesIcon />
             </span>
             <span>面试雷达</span>
           </div>
 
-          <div className="mb-10 text-center">
-            <h1 className="m-0 text-[2rem] font-black leading-tight tracking-normal text-[#020817]">{current.title}</h1>
-            <p className="mt-2 text-[0.95rem] text-[#667085]">{current.subtitle}</p>
+          <div className={`${mode === "register" ? "mb-8 text-left" : "mb-10 text-center"}`}>
+            <h1 className="m-0 text-[2rem] font-black leading-tight tracking-normal text-[#020817] max-sm:text-[1.75rem]">{current.title}</h1>
+            {mode === "register" ? (
+              <p className="mt-3 text-base text-[#667085]">
+                {current.switchText}{" "}
+                <Link className="font-bold text-[#17151f] underline underline-offset-4" href={current.switchHref}>
+                  {current.switchLink}
+                </Link>
+              </p>
+            ) : (
+              <p className="mt-2 text-[0.95rem] text-[#667085]">{current.subtitle}</p>
+            )}
           </div>
 
           <form className="grid gap-4" noValidate onSubmit={submitAuth}>
             {mode === "register" ? (
               <div className="grid gap-2">
                 <span className="text-sm font-semibold text-[#344054]">用户名</span>
-                <input
+                <Input
                   autoComplete="username"
-                  className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
                   onChange={(event) => setUsername(event.target.value)}
                   placeholder="输入你的用户名"
                   type="text"
@@ -528,42 +584,31 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
               </div>
             ) : null}
 
-            <div className="grid gap-2">
-              <span className="text-sm font-semibold text-[#344054]">邮箱</span>
-              <input
-                autoComplete="off"
-                className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
-                onBlur={() => setIsTyping(false)}
-                onChange={(event) => setEmail(event.target.value)}
-                onFocus={() => setIsTyping(true)}
-                placeholder="anna@gmail.com"
-                type="email"
-                value={email}
-              />
-            </div>
-
-            {mode === "register" ? (
+            {mode === "login" ? (
               <div className="grid gap-2">
-                <span className="text-sm font-semibold text-[#344054]">邮箱验证码</span>
-                <span className="grid grid-cols-[1fr_auto] gap-2.5 max-sm:grid-cols-1">
-                  <input
-                    autoComplete="one-time-code"
-                    className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
-                    inputMode="numeric"
-                    onChange={(event) => setEmailCode(event.target.value)}
-                    placeholder="输入 6 位验证码"
-                    type="text"
-                    value={emailCode}
-                  />
-                  <Button
-                    className="min-h-12 w-full"
-                    onClick={() => setIsCodeSent(true)}
-                    size="lg"
-                    type="button"
-                  >
-                    {isCodeSent ? "已发送" : "获取验证码"}
-                  </Button>
-                </span>
+                <span className="text-sm font-semibold text-[#344054]">用户名或邮箱</span>
+                <Input
+                  autoComplete="username"
+                  onBlur={() => setIsTyping(false)}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  onFocus={() => setIsTyping(true)}
+                  placeholder="anna 或 anna@gmail.com"
+                  type="text"
+                  value={identifier}
+                />
+              </div>
+            ) : mode === "forgot" ? (
+              <div className="grid gap-2">
+                <span className="text-sm font-semibold text-[#344054]">邮箱</span>
+                <Input
+                  autoComplete="email"
+                  onBlur={() => setIsTyping(false)}
+                  onChange={(event) => setEmail(event.target.value)}
+                  onFocus={() => setIsTyping(true)}
+                  placeholder="anna@gmail.com"
+                  type="email"
+                  value={email}
+                />
               </div>
             ) : null}
 
@@ -571,9 +616,9 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
               <div className="grid gap-2">
                 <span className="text-sm font-semibold text-[#344054]">密码</span>
                 <span className="relative">
-                  <input
+                  <Input
                     autoComplete={mode === "register" ? "new-password" : "current-password"}
-                    className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 pr-12 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
+                    className="pr-12"
                     onBlur={() => setIsPasswordFocused(false)}
                     onChange={(event) => setPassword(event.target.value)}
                     onFocus={() => setIsPasswordFocused(true)}
@@ -595,22 +640,76 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
 
             {mode === "register" ? (
               <div className="grid gap-2">
-                <span className="text-sm font-semibold text-[#344054]">重复密码</span>
-                <input
-                  autoComplete="new-password"
-                  className="min-h-12 rounded-xl border border-[#d0d5dd] bg-white px-3.5 text-base text-[#101828] outline-none transition focus:border-[#17151f] focus:ring-4 focus:ring-[#17151f14]"
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  placeholder="再次输入密码"
-                  type="password"
-                  value={confirmPassword}
+                <span className="text-sm font-semibold text-[#344054]">确认密码</span>
+                <span className="relative">
+                  <Input
+                    autoComplete="new-password"
+                    className="pr-12"
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="再次输入密码"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                  />
+                  <button
+                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                    className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[#667085] transition hover:bg-[#f2f4f7] hover:text-[#101828]"
+                    onClick={() => setShowConfirmPassword((value) => !value)}
+                    type="button"
+                  >
+                    <EyeIcon off={showConfirmPassword} />
+                  </button>
+                </span>
+              </div>
+            ) : null}
+
+            {mode === "register" ? (
+              <div className="grid gap-2">
+                <span className="text-sm font-semibold text-[#344054]">电子邮件</span>
+                <Input
+                  autoComplete="email"
+                  onBlur={() => setIsTyping(false)}
+                  onChange={(event) => setEmail(event.target.value)}
+                  onFocus={() => setIsTyping(true)}
+                  placeholder="anna@gmail.com"
+                  type="email"
+                  value={email}
                 />
+              </div>
+            ) : null}
+
+            {mode === "register" ? (
+              <div className="grid gap-2">
+                <span className="text-sm font-semibold text-[#344054]">邮箱验证码</span>
+                <span className="grid grid-cols-[1fr_140px] gap-2.5 max-sm:grid-cols-1">
+                  <Input
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    onChange={(event) => setEmailCode(event.target.value)}
+                    placeholder="输入 6 位验证码"
+                    type="text"
+                    value={emailCode}
+                  />
+                  <Button
+                    className="min-h-12 w-full whitespace-nowrap"
+                    disabled={isLoading}
+                    onClick={async () => {
+                      setError("");
+                      setMessage("");
+                      await sendRegisterCode();
+                    }}
+                    size="lg"
+                    type="button"
+                  >
+                    {isCodeSent ? "重新发送" : "获取验证码"}
+                  </Button>
+                </span>
               </div>
             ) : null}
 
             {mode === "login" ? (
               <div className="flex items-center justify-between gap-4 max-sm:items-start max-sm:flex-col">
-                <label className="!inline-flex items-center gap-2 text-sm font-medium text-[#344054]">
-                  <input className="!h-4 !w-4 shrink-0 !rounded !p-0 accent-[#17151f]" defaultChecked type="checkbox" />
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-[#344054]">
+                  <Checkbox checked={remember} onCheckedChange={(value) => setRemember(value === true)} />
                   <span>记住 30 天</span>
                 </label>
                 <Link className="text-sm font-bold text-[#17151f] hover:underline" href="/forgot-password">
@@ -620,24 +719,18 @@ export function AnimatedLoginCard({ mode }: { mode: AuthMode }) {
             ) : null}
 
             {error ? <div className="m-0 rounded-xl border border-red-300 bg-red-50 px-3 py-2.5 font-bold text-red-700">{error}</div> : null}
+            {message ? <div className="m-0 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 font-bold text-emerald-700">{message}</div> : null}
 
             <Button className="min-h-12 w-full" disabled={isLoading} size="lg" type="submit" variant="solid">
-              {isLoading ? "处理中..." : current.action}
+              {isLoading ? "处理中..." : mode === "register" && isCodeSent ? "完成注册" : current.action}
             </Button>
           </form>
 
-          {mode === "login" ? (
-            <div className="mt-4">
-              <Button className="min-h-12 w-full" size="lg" type="button">
-                <GoogleIcon />
-                使用 Google 登录
-              </Button>
-            </div>
-          ) : null}
-
-          <p className="mt-8 text-center text-sm text-[#667085] [&_a]:font-bold [&_a]:text-[#17151f] [&_a]:hover:underline">
-            {current.switchText} <Link href={current.switchHref}>{current.switchLink}</Link>
-          </p>
+          {mode === "register" ? null : (
+            <p className="mt-8 text-center text-sm text-[#667085] [&_a]:font-bold [&_a]:text-[#17151f] [&_a]:hover:underline">
+              {current.switchText} <Link href={current.switchHref}>{current.switchLink}</Link>
+            </p>
+          )}
         </div>
       </section>
     </main>

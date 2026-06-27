@@ -1,16 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { candidateQuestions, documents, targets } from "@/lib/mock-data";
+import { candidateQuestions, documents } from "@/lib/mock-data";
+import type { InterviewTarget } from "@/lib/interview-targets";
 import AnimatedLoadingSkeleton from "@/components/ui/animated-loading-skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useFileInput } from "@/components/hooks/use-file-input";
 import { DropdownSelect } from "@/components/ui/dropdown-menu";
 import { FileUploadButton } from "@/components/ui/file-upload-button";
 import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import LoaderOne from "@/components/ui/loader-one";
 import { Button } from "@/components/ui/shiny-button";
 import { Panel } from "@/components/ui/panel";
+import { Textarea } from "@/components/ui/textarea";
 
 type CandidateState = "pending" | "skipped" | "saved";
 type GenerateMode = "materials" | "target";
@@ -20,7 +24,19 @@ type Candidate = (typeof candidateQuestions)[number] & {
   state: CandidateState;
 };
 
-export function GenerateWorkbench({ materialId }: { materialId?: string }) {
+const generationRecords = [
+  { title: "前端 JD 生成", meta: "资料生成 · 12 题", time: "今天 10:35", state: "生成完成" },
+  { title: "中高级前端目标", meta: "目标生成 · 8 题", time: "昨天 21:10", state: "已入库" },
+  { title: "行为面试补题", meta: "目标生成 · STAR/行为题 · 3 题", time: "3 天前", state: "待确认" }
+];
+
+export function GenerateWorkbench({
+  interviewTarget,
+  materialId
+}: {
+  interviewTarget: InterviewTarget;
+  materialId?: string;
+}) {
   const [mode, setMode] = useState<GenerateMode>(materialId ? "materials" : "target");
   const [status, setStatus] = useState<"idle" | "generating" | "done" | "failed">("idle");
   const [selectedMaterialId, setSelectedMaterialId] = useState(materialId ?? documents[0]?.id ?? "");
@@ -163,7 +179,7 @@ export function GenerateWorkbench({ materialId }: { materialId?: string }) {
             ) : (
               <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.72fr)]">
                 <FormField label="目标岗位">
-                  <input defaultValue={`${targets.level} ${targets.role}`} />
+                  <Input defaultValue={`${interviewTarget.level} ${interviewTarget.role}`} />
                 </FormField>
                 <FormField label="生成方向">
                   <DropdownSelect
@@ -175,8 +191,11 @@ export function GenerateWorkbench({ materialId }: { materialId?: string }) {
                     ]}
                   />
                 </FormField>
+                <FormField label="面试时间">
+                  <Input defaultValue={interviewTarget.interviewDate ?? ""} type="date" />
+                </FormField>
                 <FormField className="lg:col-span-2" label="重点技术">
-                  <textarea className="h-24 min-h-24 leading-[1.5]" defaultValue={targets.stack.join("、")} />
+                  <Textarea className="h-24 min-h-24 leading-[1.5]" defaultValue={interviewTarget.stack.join("、")} />
                 </FormField>
               </div>
             )}
@@ -240,13 +259,12 @@ export function GenerateWorkbench({ materialId }: { materialId?: string }) {
               key={question.id}
             >
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-                <label className="flex min-w-0 items-start gap-3">
-                  <input
-                    className="mt-1 h-4 w-4 shrink-0 accent-[#17151f]"
+                <div className="flex min-w-0 items-start gap-3">
+                  <Checkbox
+                    className="mt-1"
                     checked={question.selected}
                     disabled={question.state !== "pending"}
-                    onChange={() => toggle(question.id)}
-                    type="checkbox"
+                    onCheckedChange={() => toggle(question.id)}
                   />
                   <span className="grid min-w-0 gap-1">
                     <strong className="text-balance text-base font-black leading-snug text-[#17151f] md:text-lg">
@@ -256,7 +274,7 @@ export function GenerateWorkbench({ materialId }: { materialId?: string }) {
                       {question.typeLabel} · {question.source} · {question.difficulty}
                     </small>
                   </span>
-                </label>
+                </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-2.5 md:justify-end">
                   <Badge variant={question.state === "saved" ? "ok" : "default"}>
                     {question.state === "saved" ? "已入库" : question.state === "skipped" ? "已跳过" : "待确认"}
@@ -271,22 +289,23 @@ export function GenerateWorkbench({ materialId }: { materialId?: string }) {
                 <summary className="cursor-pointer font-black text-[#17151f]">编辑候选题</summary>
                 <div className="mt-3 grid items-start gap-3 lg:grid-cols-[minmax(260px,1fr)_minmax(180px,0.6fr)_minmax(260px,1fr)_minmax(320px,1fr)]">
                   <FormField label="题干">
-                    <input defaultValue={question.title} />
+                    <Input defaultValue={question.title} />
                   </FormField>
                   <FormField label="题型">
                     <DropdownSelect
                       defaultValue={question.type}
                       options={[
                         { label: "问答题", value: "qa" },
-                        { label: "选择题", value: "single_choice" }
+                        { label: "选择题", value: "single_choice" },
+                        { label: "STAR/行为题", value: "behavior_star" }
                       ]}
                     />
                   </FormField>
                   <FormField label="标签">
-                    <input defaultValue={question.tags.join("、")} />
+                    <Input defaultValue={question.tags.join("、")} />
                   </FormField>
                   <FormField label="答案">
-                    <textarea
+                    <Textarea
                       className="min-h-28 leading-[1.5]"
                       defaultValue={question.answer ?? question.explanation ?? ""}
                     />
@@ -296,12 +315,38 @@ export function GenerateWorkbench({ materialId }: { materialId?: string }) {
                   <div className="mt-3 grid gap-2.5">
                     {(question.options ?? []).map((option) => (
                       <FormField key={option.key} label={`选项 ${option.key}`}>
-                        <input defaultValue={option.text} />
+                        <Input defaultValue={option.text} />
                       </FormField>
                     ))}
                   </div>
                 ) : null}
               </details>
+            </article>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel
+        description="只展示最近几次 mock 生成，方便审查生成来源和入库状态。"
+        title="生成记录"
+        wide
+      >
+        <div className="mt-4 grid gap-2.5">
+          {generationRecords.map((record, index) => (
+            <article
+              className="grid items-center gap-3 rounded-2xl border border-[#17151f12] bg-white/70 p-3.5 sm:grid-cols-[36px_minmax(0,1fr)_auto]"
+              key={record.title}
+            >
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-[#17151f] text-sm font-black text-white">
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <strong className="block truncate text-[#17151f]">{record.title}</strong>
+                <span className="mt-1 block text-sm text-[#17151f73]">{record.meta} · {record.time}</span>
+              </div>
+              <Badge variant={record.state === "生成完成" || record.state === "已入库" ? "ok" : "default"}>
+                {record.state}
+              </Badge>
             </article>
           ))}
         </div>

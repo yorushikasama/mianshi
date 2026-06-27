@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FileUploadButton } from "@/components/ui/file-upload-button";
 import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/shiny-button";
 import { Panel } from "@/components/ui/panel";
 import { SettingsSubpageHeader } from "@/components/ui/settings-section";
@@ -50,13 +51,13 @@ export default function ProfileSettingsPage() {
         >
           <div className="relative z-40 grid max-w-xl gap-3">
             <FormField label="用户名">
-              <input defaultValue="面试训练者" />
+              <Input defaultValue="面试训练者" />
             </FormField>
             <FormField label="展示昵称">
-              <input defaultValue="前端候选人" />
+              <Input defaultValue="前端候选人" />
             </FormField>
             <FormField label="登录邮箱" hint="邮箱需要到邮箱设置页修改。">
-              <input defaultValue="candidate@example.com" disabled type="email" />
+              <Input defaultValue="candidate@example.com" disabled type="email" />
             </FormField>
           </div>
           {message ? (

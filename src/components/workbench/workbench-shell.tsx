@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExpandableTabs, type ExpandableTabItem } from "@/components/ui/expandable-tabs";
 import { ParticleCanvas } from "@/components/ui/particle-canvas-1";
 import { Button } from "@/components/ui/shiny-button";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -111,12 +112,7 @@ export function WorkbenchShell({ children }: { children: React.ReactNode }) {
           />
         </nav>
         <div className="flex items-center gap-2.5 max-[860px]:hidden">
-          <Button className="text-[#17151f]" href="/login" size="sm">
-            登录
-          </Button>
-          <Button className="text-white hover:text-white" href="/register" size="sm" variant="solid">
-            注册
-          </Button>
+          <SignOutButton className="text-[#17151f]" />
         </div>
         <details className="hidden max-[860px]:block">
           <summary className="cursor-pointer list-none rounded-lg border border-[#17151f1f] px-3 py-2 font-bold [&::-webkit-details-marker]:hidden">菜单</summary>
@@ -126,8 +122,7 @@ export function WorkbenchShell({ children }: { children: React.ReactNode }) {
                 {label}
               </Link>
             ))}
-            <Link className="rounded-full px-4 py-2.5 font-bold text-[#17151f]/60 hover:bg-[#17151f12] hover:text-[#17151f]" href="/login">登录</Link>
-            <Link className="rounded-full px-4 py-2.5 font-bold text-[#17151f]/60 hover:bg-[#17151f12] hover:text-[#17151f]" href="/register">注册</Link>
+            <SignOutButton className="mx-2 my-1 justify-self-start" />
           </nav>
         </details>
       </header>

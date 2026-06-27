@@ -80,9 +80,29 @@
 - [x] 删除 `tsconfig.tsbuildinfo` TypeScript 增量缓存。
 - [x] 保留 `.reference`、`docs`、`migrations`，这些仍可作为参考、文档和后续 Postgres 设计材料。
 
+## 8. 页面子路由复查
+
+状态：完成  
+日期：2026-06-23
+
+- [x] Auth 子页：`/login`、`/register`、`/forgot-password` 已实现。
+- [x] 题库子页：`/questions/[questionId]` 已实现，并改为练习前工作台。
+- [x] 练习子页：`/practice/[questionId]`、`/practice/[questionId]/result`、`/practice/history`、`/practice/review` 已实现。
+- [x] 资料子页：`/materials/[materialId]` 已实现。
+- [x] 设置子页：`/settings/profile`、`/settings/email`、`/settings/password`、`/settings/ai-provider` 已实现。
+- [x] 404 页面：`not-found.tsx` 已接入当前 404 组件。
+- [x] 导航 active 状态支持子路由归属，例如 `/settings/password` 高亮“设置”。
+- [x] 可点击入口已核对，当前没有指向缺失页面的主流程链接。
+
+### 暂不新增页面
+
+- [ ] 单独题目编辑页：当前使用题库列表内联编辑，够原型审查。
+- [ ] 账号会话能力：不做独立“登录状态管理页”；后端接入真实会话后，只在设置页补退出登录或修改密码等必要账号动作。
+- [ ] 题目导入能力：不做独立“批量导入编辑器”；第一版题目主要来自岗位描述和资料生成。
+- [ ] 面试目标能力：不做独立“目标方向管理页”；第一版只在 Dashboard 和 AI 生成页展示当前目标。
+
 ## 建议顺序
 
-1. 先做 AI 生成页闭环。
-2. 再做资料上传状态。
-3. 然后做题库管理。
-4. 最后补练习回流和 Dashboard 联动。
+1. 先继续做视觉验收和移动端细节。
+2. 再补真实后端前的数据模型/API 计划。
+3. 最后接登录、PostgreSQL、LiteLLM 和文件解析。

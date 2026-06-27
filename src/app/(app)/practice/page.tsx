@@ -6,10 +6,17 @@ import { Panel } from "@/components/ui/panel";
 
 export default function PracticePage() {
   const dueQuestions = candidateQuestions.filter((question) => question.id === "next-app-router");
+  const estimate = (type: string) => type === "single_choice" ? "3 分钟" : type === "behavior_star" ? "8 分钟" : "10 分钟";
 
   return (
     <main className="grid gap-[18px]">
       <Panel
+        actions={
+          <>
+            <Button href="/practice/review" size="sm" variant="solid">复习计划</Button>
+            <Button href="/practice/history" size="sm">练习历史</Button>
+          </>
+        }
         badge="按题练习"
         badgeVariant="hot"
         description="推荐先练项目追问和复习到期题，选择题约 3 分钟，问答题约 10 分钟。"
@@ -36,7 +43,7 @@ export default function PracticePage() {
               action={<Badge variant="ok">开始练习</Badge>}
               href={`/practice/${question.id}`}
               key={question.id}
-              meta={`${question.typeLabel} · ${question.difficulty} · ${question.source} · ${question.type === "single_choice" ? "3 分钟" : "10 分钟"}`}
+              meta={`${question.typeLabel} · ${question.difficulty} · ${question.source} · ${estimate(question.type)}`}
               title={question.title}
             />
           ))}
